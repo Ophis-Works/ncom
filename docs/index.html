@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ncom — a modal, vi-like serial terminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <main class="container">
+
+    <!-- TODO-for-user: replace the repository URL below (it appears in the
+         header link and the footer) with the real GitHub repository URL
+         before publishing. -->
+    <header>
+      <hgroup>
+        <h1>ncom</h1>
+        <p>A modal, vi-like serial terminal TUI written in Rust.</p>
+      </hgroup>
+      <p><a href="https://github.com/USER/ncom">GitHub repository</a></p>
+    </header>
+
+    <p>
+      ncom connects to serial devices with a 10,000-line scrollback, search,
+      and an ex-style <code>:</code> command line for connecting and live
+      reconfiguration. It needs no extra system libraries and installs as a
+      single static binary.
+    </p>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>Requires Rust &ge; 1.85 and cargo (Linux; edition 2024).</p>
+      <pre><code>cargo build --release
+install -Dm755 target/release/ncom ~/.local/bin/ncom</code></pre>
+      <p>
+        For a fully static binary with no glibc dependency, build against the
+        <code>x86_64-unknown-linux-musl</code> target:
+      </p>
+      <pre><code>rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
+install -Dm755 target/x86_64-unknown-linux-musl/release/ncom ~/.local/bin/ncom</code></pre>
+    </section>
+
+    <section id="usage">
+      <h2>Usage</h2>
+      <pre><code>ncom --port /dev/ttyUSB0 --baud 115200</code></pre>
+      <p>
+        Or start without <code>--port</code> and use <code>:ports</code> to
+        list devices, then <code>:connect &lt;dev&gt; [&lt;baud&gt;]</code>.
+      </p>
+      <h3>Modes</h3>
+      <ul>
+        <li><code>i</code> enters serial mode (SERIAL); <code>Esc</code> returns to command mode (COMMAND); <code>:</code> opens the ex-style command line (CMD).</li>
+        <li><code>j</code> / <code>k</code> scroll down/up; <code>G</code> jumps to the newest line and resumes follow-tail.</li>
+        <li><code>/pattern</code> searches case-insensitively; <code>n</code> / <code>N</code> navigate matches.</li>
+        <li>Useful commands: <code>:filter</code>, <code>:hl</code>, <code>:hex</code>, <code>:ts</code>, <code>:log</code>, <code>:baud</code>, <code>:line</code>, <code>:echo</code>, <code>:sendfile</code>, <code>:r</code>, <code>:q</code>.</li>
+      </ul>
+    </section>
+
+    <section id="features">
+      <h2>Features</h2>
+      <ul>
+        <li>Modal, vi-like navigation (COMMAND / SERIAL / CMD modes).</li>
+        <li>10,000-line scrollback with case-insensitive search and <code>n</code> / <code>N</code>.</li>
+        <li><code>:filter &lt;pattern&gt;</code> — view only matching lines, nothing deleted.</li>
+        <li><code>:hl &lt;pattern&gt;</code> — whole-line highlight of matching traffic.</li>
+        <li><code>:hex on</code> — hexdump view with offset, byte and ASCII columns.</li>
+        <li><code>:ts on</code> — timestamps on received lines.</li>
+        <li><code>:log &lt;path&gt;</code> — session logging.</li>
+        <li>Live reconfiguration — <code>:baud &lt;n&gt;</code>, <code>:line on|off</code>, <code>:echo on|off</code> and more, without restarting.</li>
+        <li>Local echo of transmitted bytes.</li>
+        <li>Chunked <code>:sendfile</code> that never blocks the UI.</li>
+      </ul>
+    </section>
+
+    <section id="screenshots">
+      <h2>Screenshots</h2>
+      <figure>
+        <img src="assets/main.png" alt="Command mode with follow-tail over a telemetry stream">
+        <figcaption>Command mode with follow-tail over a telemetry stream.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/hex.png" alt="Hex view with offset, byte and ASCII columns">
+        <figcaption><code>:hex on</code> — offset, byte and ASCII columns in distinct tones.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/hl.png" alt="Whole-line highlight of matching traffic">
+        <figcaption><code>:hl ERROR</code> — whole-line highlight on matching traffic.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/filter.png" alt="Only matching lines shown by the filter">
+        <figcaption><code>:filter GPS</code> — only matching lines, snapped to the filtered tail.</figcaption>
+      </figure>
+    </section>
+
+    <section id="demo">
+      <h2>Demo</h2>
+      <figure>
+        <video src="assets/demo.webm" controls loop muted></video>
+        <figcaption>Short demo: highlight, search, filter.</figcaption>
+      </figure>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/USER/ncom">github.com/USER/ncom</a></p>
+    </footer>
+
+  </main>
+</body>
+</html>
