@@ -4,5 +4,6 @@
 todo.txt
 ncom-modal-serial-terminal.md
 scripts/.venv/
+__pycache__/
 improvement-plan.md
 fix_pan_second_iter.md

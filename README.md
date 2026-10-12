@@ -4,6 +4,34 @@
 to serial devices with scrollback, search, and an ex-style `:` command line
 for connecting and live reconfiguration.
 
+## Screenshots
+
+Short demo (timestamps, search, filter, hex view) — regenerate with
+`scripts/record.sh` (or `vhs scripts/demo.tape`); a larger `demo.mp4` master
+sits next to the GIF:
+
+![Feature tour](screenshots/demo.gif)
+
+Command mode with follow-tail over a telemetry stream:
+
+![Command mode](screenshots/main.png)
+
+`:hex on` — offset, byte and ASCII columns in distinct tones:
+
+![Hex view](screenshots/hex.png)
+
+`:hl error` whole-line highlight combined with a `/flash` search:
+
+![Search and highlight](screenshots/search.png)
+
+`:help` popup over dimmed scrollback:
+
+![Help popup](screenshots/help.png)
+
+Line insert mode with the input bar and block cursor:
+
+![Line input](screenshots/line.png)
+
 ## Install
 
 Requires Rust >= 1.85 and cargo (Linux) — the crate uses edition 2024. No
