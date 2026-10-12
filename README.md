@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/logo.svg" alt="ncom logo" width="420"></p>
+
 # ncom
 
 **ncom** is a modal, vi-like serial terminal TUI written in Rust. It connects
