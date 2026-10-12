@@ -14,7 +14,10 @@
        Page is darker than content cards so screenshots (#15152b body) and the
        logo card (#1c1b36) never blend into the page background. */
     :root { --pico-background-color: #0e0d20; }
-    body { background-color: #0e0d20; }
+    body { background-color: #0e0d20; color: #ffffff; }
+    /* Pico dark sets its own off-white on p/li/ul below body — re-whiten. */
+    body, main p, main li { color: #ffffff; }
+    h1, h2, h3, h4, h5, h6 { color: #ffffff; }
     .container { max-width: 1000px; }
     .container > header, .container > section {
       background-color: #1c1b36;
