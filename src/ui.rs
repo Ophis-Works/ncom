@@ -366,7 +366,62 @@ fn render_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: St
     }
 }
 
+// ---------------------------------------------------------------------------
+// Connection splash (`ncom` block-art wordmark)
+// ---------------------------------------------------------------------------
+
+/// The `ncom` wordmark as 5 text rows of Unicode block elements. Mirrors
+/// docs/assets/logo.svg: letters on a 5-cell-tall grid — n (cols 3-7), c
+/// (cols 9-13), o (cols 15-19), m (cols 21-27); every letter cell is a full
+/// block, everything else a space, so each row is 25 cells wide. Kept as a
+/// helper so tests can assert on the exact art.
+fn splash_lines() -> [&'static str; 5] {
+    [
+        "█████ █████ █████ ███████",
+        "█   █ █     █   █ █  █  █",
+        "█   █ █     █   █ █  █  █",
+        "█   █ █     █   █ █  █  █",
+        "█   █ █████ █████ █  █  █",
+    ]
+}
+
+/// Render the splash: the block-art wordmark centred in the body area, shown
+/// only when the app has never seen serial traffic (`scrollback` empty and
+/// not `connected`) — the condition stops holding the moment RX arrives or
+/// the port comes up, so it disappears naturally. RENDER-ONLY: nothing is
+/// pushed to the scrollback, so `:w`, logs and recordings are unaffected.
+/// The letters use the theme's `normal` lavender (not bold) on the body base
+/// background; the hex view never shows it (`render_body` dispatches before
+/// this is reachable from `text_body` only).
+fn render_splash(frame: &mut Frame, area: Rect, theme: &Theme, base: Style) {
+    let lines = splash_lines();
+    let art_width = lines[0].chars().count() as u16; // 25
+    let art_height = lines.len() as u16;
+    let fg = base.fg(theme.normal); // no BOLD — content, not an alert
+    let top = area.height.saturating_sub(art_height) / 2;
+    let mut rows: Vec<RtLine> = Vec::with_capacity(area.height as usize);
+    for y in 0..area.height {
+        if y >= top && y < top + art_height {
+            let art = lines[(y - top) as usize];
+            let indent = (area.width.saturating_sub(art_width)) / 2;
+            rows.push(RtLine::from(Span::styled(
+                format!("{}{}", " ".repeat(indent as usize), art),
+                fg,
+            )));
+        } else {
+            rows.push(RtLine::from(Span::styled("", fg)));
+        }
+    }
+    frame.render_widget(Paragraph::new(rows).style(base), area);
+}
+
 fn text_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Style) {
+    // Fresh, never-connected app: show the wordmark splash instead of an
+    // empty screen (see [`render_splash`]).
+    if app.scrollback.is_empty() && !app.connected {
+        render_splash(frame, area, theme, base);
+        return;
+    }
     let visible = visible_lines(app, area.height as usize);
     let dim = base
         .fg(ratatui::style::Color::Rgb(0x9a, 0x8f, 0xb8))
@@ -2292,5 +2347,95 @@ mod tests {
         let buf = terminal.backend().buffer().clone();
         let row: String = (0..60).map(|x| buf[(x, 0)].symbol().to_string()).collect();
         assert!(row.starts_with("ncom  hl filter "), "{}", row);
+    }
+
+    // ------------------------------------------------------------------
+    // Connection splash (block-art `ncom` wordmark, fresh app only)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn splash_renders_centred_on_fresh_disconnected_app() {
+        let mut a = App::new(&Config::default()); // connected: false, no scrollback
+        let (cols, rows) = (80u16, 24u16);
+        let backend = ratatui::backend::TestBackend::new(cols, rows);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let row = |y: u16| -> String {
+            (0..cols)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect()
+        };
+
+        let lines = splash_lines();
+        let art_width = lines[0].chars().count() as u16; // 25
+        // Body area: 1-row top bar above, 1-row command row below -> 22 rows
+        // starting at y=1. The 5 art rows are vertically centred in those.
+        let body_top = 1u16;
+        let body_height = rows - 2;
+        let top = body_top + (body_height - lines.len() as u16) / 2;
+        let expected_indent = (cols - art_width) / 2; // (80-25)/2 = 27
+        for (i, art) in lines.iter().enumerate() {
+            let y = top + i as u16;
+            let r = row(y);
+            // Leading indent spaces, then the art row, then trailing blanks.
+            let indent = r.find('█').expect("art row present") as u16;
+            assert_eq!(indent, expected_indent, "row {i} centred: {r:?}");
+            let rendered: String = r
+                .chars()
+                .skip(indent as usize)
+                .take(art_width as usize)
+                .collect();
+            assert_eq!(rendered, *art, "row {i} content: {r:?}");
+        }
+        // Nothing outside the art block on those rows.
+        let first = row(top);
+        assert!(first[..expected_indent as usize].chars().all(|c| c == ' '));
+    }
+
+    #[test]
+    fn no_splash_when_connected() {
+        let mut a = App::new(&Config::default());
+        a.connected = true; // `--port` up, but no traffic yet
+        let backend = ratatui::backend::TestBackend::new(80, 24);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        for y in 1..23u16 {
+            let r: String = (0..80).map(|x| buf[(x, y)].symbol().to_string()).collect();
+            assert!(!r.contains('█'), "splash leaked at y={y}: {r:?}");
+        }
+    }
+
+    #[test]
+    fn no_splash_when_scrollback_non_empty() {
+        let mut a = App::new(&Config::default());
+        a.push_line(b"hello".to_vec(), SystemTime::now(), LineFlags::default());
+        a.connected = false; // traffic seen, port now down: traffic view wins
+        let backend = ratatui::backend::TestBackend::new(80, 24);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        for y in 1..23u16 {
+            let r: String = (0..80).map(|x| buf[(x, y)].symbol().to_string()).collect();
+            assert!(!r.contains('█'), "splash leaked at y={y}: {r:?}");
+        }
+    }
+
+    #[test]
+    fn splash_uses_theme_normal_colour() {
+        let mut a = App::new(&Config::default());
+        let theme = Config::default().theme;
+        let backend = ratatui::backend::TestBackend::new(80, 24);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let top = 1 + (22 - splash_lines().len() as u16) / 2;
+        let indent = (80u16 - splash_lines()[0].chars().count() as u16) / 2;
+        // First cell of the wordmark and a mid-art space cell share the art
+        // row; the ink cell must be theme.normal foreground, not bold.
+        let cell = buf[(indent, top)].clone();
+        assert_eq!(cell.fg, theme.normal);
+        assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
     }
 }
