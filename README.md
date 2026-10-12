@@ -52,6 +52,23 @@ Requires Rust >= 1.85 and cargo (Linux) — the crate uses edition 2024. No
 extra system libraries are needed — the `serialport` crate is built without
 its default `libudev` feature.
 
+### Download a release binary
+
+Prebuilt x86-64 Linux binaries are attached to each
+[release](https://github.com/Ophis-Works/ncom/releases/latest):
+
+```sh
+curl -LO https://github.com/Ophis-Works/ncom/releases/latest/download/ncom-x86_64-unknown-linux-musl
+chmod +x ncom-x86_64-unknown-linux-musl
+install -Dm755 ncom-x86_64-unknown-linux-musl ~/.local/bin/ncom
+```
+
+The musl binary is fully static, so it runs on any Linux; a glibc build
+(`ncom-x86_64-unknown-linux-gnu`) is there for dynamic-linking fans.
+Checksums are in `sha256sums.txt` on the release.
+
+### Build from source
+
 Build from source and copy the single binary:
 
 ```sh
