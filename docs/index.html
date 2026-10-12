@@ -124,6 +124,21 @@
 
     <section id="install" aria-labelledby="install-title">
       <h2 id="install-title">Install</h2>
+      <h3>Download a release binary</h3>
+      <p>
+        Prebuilt x86-64 Linux binaries are attached to each
+        <a href="https://github.com/Ophis-Works/ncom/releases">GitHub release</a>:
+      </p>
+      <pre><code>curl -LO https://github.com/Ophis-Works/ncom/releases/latest/download/ncom-x86_64-unknown-linux-musl
+chmod +x ncom-x86_64-unknown-linux-musl
+install -Dm755 ncom-x86_64-unknown-linux-musl ~/.local/bin/ncom</code></pre>
+      <p>
+        The musl binary is fully static and runs on any Linux; the glibc build
+        (<code>ncom-x86_64-unknown-linux-gnu</code>) is available for
+        distributions that prefer dynamic linking. Checksums are in
+        <code>sha256sums.txt</code> on the release.
+      </p>
+      <h3>Build from source</h3>
       <p>Requires Rust &ge; 1.85 and cargo (Linux; edition 2024).</p>
       <pre><code>cargo build --release
 install -Dm755 target/release/ncom ~/.local/bin/ncom</code></pre>
