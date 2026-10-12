@@ -6,6 +6,7 @@
 //! partial line until `\n` or the 100 ms idle timeout flush.
 
 use chrono::{DateTime, Local};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::sync::mpsc;
@@ -18,10 +19,10 @@ use crate::serial::{
     decode_lossy_caret,
 };
 
-/// Max scrollback lines kept in memory (spec default: 10 000).
+/// Max scrollback lines kept in memory (default: 10 000).
 pub const DEFAULT_SCROLLBACK: usize = 10_000;
 
-/// Line-mode input history cap (spec: "in-memory, newest 100").
+/// Line-mode input history cap (in-memory, newest 100).
 pub const LINE_HISTORY_CAP: usize = 100;
 
 /// How long an informational status message stays visible before it
@@ -209,7 +210,7 @@ pub struct Line {
 pub enum InsertStyle {
     /// Raw keystroke passthrough (`:line off`, default).
     Raw,
-    /// Local input line with editing + history (`:line on`, task 6).
+    /// Local input line with editing + history (`:line on`).
     Line,
 }
 
@@ -320,7 +321,7 @@ pub struct App {
     /// whenever the popup opens; vim-style page keys move it (input.rs).
     pub help_page: usize,
     /// Line-mode (`:line on`) input bar text — survives Esc → NORMAL → `i`
-    /// (spec: "pending text" preservation).
+    /// (pending text preservation).
     pub line_input: String,
     /// Line-mode cursor as a CHAR index into `line_input` (0 = before first
     /// char; editing must be char-wise, not byte-wise, for UTF-8 input).
@@ -394,9 +395,6 @@ impl App {
     /// Append a completed line into the ring buffer; evict oldest beyond cap.
     ///
     /// View bookkeeping:
-    /// Append a completed line into the ring buffer; evict oldest beyond cap.
-    ///
-    /// View bookkeeping:
     /// - `last_match` is a view index (ABSOLUTE scrollback index without a
     ///   filter, position in the FILTERED list with one — see
     ///   [`App::find_matches`]), so every evicted VISIBLE line shifts it DOWN
@@ -427,11 +425,15 @@ impl App {
     ///   MATCHING evictions, i.e. the same `evicted_visible` quantity
     ///   `last_match` rebases on.
     pub fn push_line(&mut self, bytes: Vec<u8>, ts: SystemTime, flags: LineFlags) {
+        // `scrollback_cap == 0` means keep NOTHING: store nothing at all.
+        // (Treating zero as "unbounded" would grow the buffer forever; zero
+        // here means an empty scrollback, by definition.)
+        if self.scrollback_cap == 0 {
+            return;
+        }
         // Rebuild the cache first if a `filter_pattern` change bypassed
         // `set_filter`, so the incremental maintenance below is always valid.
         self.ensure_filter_cache();
-        // Guard `cap > 0` so a zero cap cannot spin forever on an empty buffer
-        // (pop_front on empty is a no-op and would never shrink `len`).
         let mut evicted_raw = 0usize;
         while self.scrollback_cap > 0 && self.scrollback.len() >= self.scrollback_cap {
             if self.scrollback.pop_front().is_some() {
@@ -475,18 +477,27 @@ impl App {
     /// Consume worker events: drain RX chunks through the line splitter and
     /// record disconnects. RX always appends into the buffer, even while
     /// follow-tail is paused (rendering pauses, ingestion does not). The
-    /// monotonic clock is injectable for tests (idle-flush timing).
+    /// arrival wall-clock timestamp is taken at drain time (`SystemTime::now`
+    /// per chunk); the monotonic clock is injectable for tests (idle-flush
+    /// timing).
     pub fn drain_worker_at(&mut self, rx: &mpsc::Receiver<FromWorker>, now: std::time::Instant) {
         while let Ok(ev) = rx.try_recv() {
             match ev {
-                FromWorker::Data(chunk, _arrival) => {
+                FromWorker::Data(chunk) => {
                     // Log the RAW chunk at arrival, before line splitting —
                     // the log is a byte-stream record, not a line record, so
                     // partial lines must not wait for the idle flush.
                     self.logger.write(&chunk);
                     let wall = SystemTime::now();
                     for (line, truncated) in self.splitter.feed(&chunk, now) {
-                        self.push_line(line, wall, LineFlags { truncated, tx: false });
+                        self.push_line(
+                            line,
+                            wall,
+                            LineFlags {
+                                truncated,
+                                tx: false,
+                            },
+                        );
                     }
                 }
                 FromWorker::Disconnected(err) => {
@@ -497,15 +508,24 @@ impl App {
         }
         // Idle-flush a warm partial line so silent transmissions still show up.
         if let Some((line, truncated)) = self.splitter.flush_idle(now) {
-            self.push_line(line, SystemTime::now(), LineFlags { truncated, tx: false });
+            self.push_line(
+                line,
+                SystemTime::now(),
+                LineFlags {
+                    truncated,
+                    tx: false,
+                },
+            );
         }
     }
 
-    /// Ordering hook for TX logging (spec: TX recorded at send time). Called
+    /// Ordering hook for TX logging (TX recorded at send time). Called
     /// by `send_tx` AFTER the worker channel send succeeded, so the log holds
-    /// exactly the bytes actually queued to the port (a failed send is never
-    /// logged — see `send_tx`); RX writes happen in the drain path (also on
-    /// the main thread), giving a single ordered byte stream.
+    /// exactly the bytes queued to the WORKER (a failed channel send is never
+    /// logged — see `send_tx`); a later worker-side write failure can still
+    /// mean those bytes never reached the wire (no wire-level ACK exists).
+    /// RX writes happen in the drain path (also on the main thread), giving a
+    /// single ordered byte stream.
     pub fn record_tx(&mut self, bytes: &[u8]) {
         self.logger.write(bytes);
     }
@@ -530,12 +550,12 @@ impl App {
     /// worker.
     ///
     /// Failure semantics: the channel send is attempted FIRST; only a
-    /// successful send is logged (log-after-successful-send — the session log
-    /// must never contain bytes the port never saw) and clears `last_error`
-    /// (a successful TX proves any prior error is stale — status freshness,
-    /// see the field docs above). A failed send (`Err`: receiver dropped /
-    /// worker gone) logs NOTHING and surfaces a status error instead; the
-    /// bytes are dropped (there is no retry queue).
+    /// successful send is logged (log-after-successful-queue — see
+    /// `record_tx`) and clears `last_error` (a successful TX proves any prior
+    /// error is stale — status freshness, see the field docs above). A failed
+    /// send (`Err`: receiver dropped / worker gone) logs NOTHING and surfaces
+    /// a status error instead; the bytes are dropped (there is no retry
+    /// queue).
     ///
     /// Local echo (`App::echo_on`, `:echo on`): a successful send pushes the
     /// sent bytes as ONE scrollback line flagged [`LineFlags::tx`] — one line
@@ -560,7 +580,7 @@ impl App {
                     // One echoed line per successful send (see doc above);
                     // timestamp is the send time, like RX arrival time.
                     self.push_line(
-                        bytes.clone(),
+                        bytes,
                         SystemTime::now(),
                         LineFlags {
                             truncated: false,
@@ -791,6 +811,13 @@ impl App {
             }
             self.line_history.push_back(line.clone());
         }
+        // `connected` implies a live worker channel in every code path that
+        // opens/closes it; `connected && tx.is_none()` would silently drop
+        // the submitted line, so pin that invariant (debug builds only).
+        debug_assert!(
+            tx.is_some(),
+            "line_submit: connected but no worker channel — line would be dropped"
+        );
         if let Some(tx) = tx {
             let bytes = self.txnl.encode_line(&line);
             self.send_tx(tx, bytes);
@@ -817,16 +844,15 @@ impl App {
     /// with `filter_pattern` set, only lines whose decoded text matches the
     /// pattern case-insensitively ([`find_ci`], the shared search matcher).
     ///
-    /// Reads the cached index (`filter_cache` — see the field docs): a clone
-    /// of the cache when it is fresh, so renders/motions/arrivals are O(view)
-    /// instead of a full decode+scan per call. The cache is kept fresh by
-    /// [`App::set_filter`] (the single pattern mutation point, rebuilds
-    /// immediately) and [`App::push_line`] (incremental append/evict); only a
-    /// `filter_pattern` change that bypasses `set_filter` (tests) can leave it
-    /// stale, and readers then recompute WITHOUT caching rather than trust it.
-    pub fn filtered_indices(&self) -> Vec<usize> {
+    /// Reads the cached index (`filter_cache` — see the field docs): a
+    /// BORROW of the cache when it is fresh, so renders/motions/arrivals are
+    /// O(view) with no per-call copy of the index; only a `filter_pattern`
+    /// change that bypasses `set_filter` (tests) can leave it stale, and
+    /// readers then recompute WITHOUT caching rather than trust it (an owned
+    /// `Cow::Owned`).
+    pub fn filtered_indices(&self) -> Cow<'_, [usize]> {
         if self.filter_cache_is_fresh() {
-            return self.filter_cache.clone();
+            return Cow::Borrowed(&self.filter_cache);
         }
         match &self.filter_pattern {
             Some(p) => self
@@ -986,10 +1012,10 @@ impl App {
                 .collect(),
             Some(_) => self
                 .filtered_indices()
-                .into_iter()
+                .iter()
                 .enumerate()
                 .filter(|(_, i)| {
-                    find_ci(&decode_lossy_caret(&self.scrollback[*i].bytes), pattern).is_some()
+                    find_ci(&decode_lossy_caret(&self.scrollback[**i].bytes), pattern).is_some()
                 })
                 .map(|(pos, _)| pos)
                 .collect(),
@@ -1169,6 +1195,37 @@ mod tests {
     }
 
     #[test]
+    fn scrollback_cap_zero_keeps_nothing() {
+        // Cap 0 = keep NOTHING: every push stores nothing, no eviction-loop
+        // spin, no unbounded growth (the old cap-0 behaviour).
+        let mut a = app();
+        a.scrollback_cap = 0;
+        let t = SystemTime::now();
+        for i in 0..10u8 {
+            a.push_line(vec![b'0' + i], t, LineFlags::default());
+        }
+        assert!(a.scrollback.is_empty(), "cap 0 keeps no lines");
+        assert_eq!(a.view_len(), 0);
+        // Further pushes and motions on the permanently empty buffer: no panic.
+        a.push_line(b"x".to_vec(), t, LineFlags::default());
+        a.motion_up(3);
+        assert!(a.scrollback.is_empty());
+        assert_eq!(a.view_len(), 0);
+    }
+
+    #[test]
+    fn scrollback_cap_one_keeps_only_newest() {
+        let mut a = app();
+        a.scrollback_cap = 1;
+        let t = SystemTime::now();
+        for i in 0..3u8 {
+            a.push_line(vec![b'0' + i], t, LineFlags::default());
+        }
+        assert_eq!(a.scrollback.len(), 1);
+        assert_eq!(a.scrollback.back().unwrap().bytes, b"2".to_vec());
+    }
+
+    #[test]
     fn default_modes_and_flags() {
         let a = app();
         assert_eq!(a.mode, Mode::Normal);
@@ -1194,13 +1251,8 @@ mod tests {
     #[test]
     fn drain_worker_splits_rx_lines() {
         let (tx, rx) = mpsc::channel();
-        tx.send(FromWorker::Data(
-            b"hello\r\nwor".to_vec(),
-            std::time::Instant::now(),
-        ))
-        .unwrap();
-        tx.send(FromWorker::Data(b"ld".to_vec(), std::time::Instant::now()))
-            .unwrap();
+        tx.send(FromWorker::Data(b"hello\r\nwor".to_vec())).unwrap();
+        tx.send(FromWorker::Data(b"ld".to_vec())).unwrap();
         let t0 = std::time::Instant::now();
         let mut a = app();
         a.connected = true;
@@ -1219,11 +1271,7 @@ mod tests {
         // queued in the app-owned channel must reach the session log, and
         // `drain` must restore `rx` so nothing is lost on the way out.
         let (tx, rx) = mpsc::channel();
-        tx.send(FromWorker::Data(
-            b"last words\n".to_vec(),
-            std::time::Instant::now(),
-        ))
-        .unwrap();
+        tx.send(FromWorker::Data(b"last words\n".to_vec())).unwrap();
         let mut a = app();
         a.connected = true;
         let path =
@@ -1296,11 +1344,7 @@ mod tests {
         a.send_tx(&tx_w, b"tx1>".to_vec());
         // ...then RX at arrival (raw chunk, before line splitting).
         let (tx_r, rx) = mpsc::channel();
-        tx_r.send(FromWorker::Data(
-            b"rx1\n".to_vec(),
-            std::time::Instant::now(),
-        ))
-        .unwrap();
+        tx_r.send(FromWorker::Data(b"rx1\n".to_vec())).unwrap();
         a.drain_worker_at(&rx, std::time::Instant::now());
         a.send_tx(&tx_w, b"tx2>".to_vec());
         a.log_off();
@@ -1387,8 +1431,7 @@ mod tests {
         let mut a = app();
         a.echo_on = true;
         a.connected = true;
-        let path = std::env::temp_dir()
-            .join(format!("ncom-echo-file-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!("ncom-echo-file-{}", std::process::id()));
         std::fs::write(&path, vec![0x61; 10_000]).unwrap(); // > 2 chunks
         a.pending_sendfile = Some(PendingSendFile {
             file: std::fs::File::open(&path).unwrap(),
@@ -1420,7 +1463,11 @@ mod tests {
             assert_eq!(line.bytes, *chunk);
         }
         // Concatenated echo lines reassemble the file exactly.
-        let echoed: Vec<u8> = a.scrollback.iter().flat_map(|l| l.bytes.iter().copied()).collect();
+        let echoed: Vec<u8> = a
+            .scrollback
+            .iter()
+            .flat_map(|l| l.bytes.iter().copied())
+            .collect();
         assert_eq!(echoed, vec![0x61u8; 10_000]);
         std::fs::remove_file(&path).ok();
     }
@@ -2006,7 +2053,11 @@ mod tests {
                 None
             };
             let expected = naive_filtered_indices(&a);
-            assert_eq!(a.filtered_indices(), expected, "after push {i}");
+            assert_eq!(
+                a.filtered_indices().as_ref(),
+                expected.as_slice(),
+                "after push {i}"
+            );
             assert_eq!(a.view_len(), expected.len(), "view_len after push {i}");
         }
         // The `set_filter` path (what command.rs routes through) must leave
@@ -2020,7 +2071,10 @@ mod tests {
         ] {
             a.set_filter(p);
             assert!(a.filter_cache_is_fresh(), "cache fresh after set_filter");
-            assert_eq!(a.filtered_indices(), naive_filtered_indices(&a));
+            assert_eq!(
+                a.filtered_indices().as_ref(),
+                naive_filtered_indices(&a).as_slice()
+            );
             assert_eq!(a.view_len(), naive_filtered_indices(&a).len());
         }
     }
@@ -2034,24 +2088,24 @@ mod tests {
             a.push_line(text.as_bytes().to_vec(), t, LineFlags::default());
         }
         a.set_filter(Some("err".into()));
-        assert_eq!(a.filtered_indices(), vec![0, 2]);
+        assert_eq!(a.filtered_indices().as_ref(), &[0, 2][..]);
         // Appending a NON-matching line evicts the matching "err one" (raw
         // front count 1): the cache drops index 0 and shifts the rest, so
         // "err three" lands at raw index 1 == view position 0.
         a.push_line(b"ok four".to_vec(), t, LineFlags::default());
         assert_eq!(a.scrollback.len(), 3);
-        assert_eq!(a.filtered_indices(), vec![1]);
+        assert_eq!(a.filtered_indices().as_ref(), &[1][..]);
         assert_eq!(a.view_len(), 1);
         // Appending a MATCHING line evicts the non-matching "ok two": nothing
         // shifts (no matching eviction), and the new line appends at the back.
         a.push_line(b"err five".to_vec(), t, LineFlags::default());
-        assert_eq!(a.filtered_indices(), vec![0, 2]);
+        assert_eq!(a.filtered_indices().as_ref(), &[0, 2][..]);
         assert_eq!(a.view_len(), 2);
         // And a no-filter cache is the full index list, maintained likewise.
         a.set_filter(None);
-        assert_eq!(a.filtered_indices(), vec![0, 1, 2]);
+        assert_eq!(a.filtered_indices().as_ref(), &[0, 1, 2][..]);
         a.push_line(b"six".to_vec(), t, LineFlags::default()); // evicts "err three"
-        assert_eq!(a.filtered_indices(), vec![0, 1, 2]);
+        assert_eq!(a.filtered_indices().as_ref(), &[0, 1, 2][..]);
     }
 
     #[test]

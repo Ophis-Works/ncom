@@ -217,7 +217,7 @@ pub fn parse(line: &str) -> Result<Command, String> {
         "rts" => bool_arg(rest, "rts").map(Command::Rts),
         "ports" => no_args(rest).map(|_| Command::Ports),
         // `c`: exact-lowercase alias for `connect` (vi-style brevity, same
-        // behavior).
+        // behaviour).
         "c" | "connect" => {
             let mut it = rest.split_whitespace();
             let dev = it.next().ok_or("usage: connect <dev> [<baud>]")?;
@@ -497,16 +497,10 @@ pub fn execute(cmd: Command, app: &mut App, tx: Option<&mpsc::Sender<ToWorker>>)
                     app.echo_on = false;
                     app.set_status("echo: off");
                 }
-                other => app.set_error(format!(
-                    "echo: invalid value '{other}' (expected on|off)"
-                )),
+                other => app.set_error(format!("echo: invalid value '{other}' (expected on|off)")),
             }
         }
-        Command::Echo(None) => app.set_status(if app.echo_on {
-            "echo: on"
-        } else {
-            "echo: off"
-        }),
+        Command::Echo(None) => app.set_status(if app.echo_on { "echo: on" } else { "echo: off" }),
         Command::Filter(Some(p)) => {
             if p == "off" {
                 // Leaving the filtered view switches `last_match` coordinates
@@ -628,8 +622,10 @@ fn pin(app: &mut App, tx: Option<&mpsc::Sender<ToWorker>>, msg: ToWorker, name: 
 
 /// (Re)connect: drop any existing worker channel pair (see module docs — the
 /// old worker stops itself within one read timeout) and spawn a fresh one via
-/// the same `SerialWorker::spawn` path main.rs uses for `--port`.
-fn connect(app: &mut App, cfg: SerialConfig) {
+/// the same `SerialWorker::spawn` path. Also used by main.rs for the
+/// `--port` startup path, so a failed startup keeps `App::port_cfg` set and
+/// `:r` retries the same config instead of reporting "never connected".
+pub(crate) fn connect(app: &mut App, cfg: SerialConfig) {
     app.tx = None;
     app.rx = None;
     app.connected = false;
@@ -665,8 +661,8 @@ fn connect(app: &mut App, cfg: SerialConfig) {
 /// opens with `create(true).truncate(true)` instead. The path is opened
 /// normally, so it follows an existing symlink vi-style (the target is
 /// written, not replaced). On failure the OS error goes to the status line.
-/// Note: a write error partway through the loop leaves a partially-written
-/// file — bytes already flushed cannot be retracted.
+/// A write error partway through the loop leaves a partially-written file —
+/// bytes already flushed cannot be retracted.
 fn write_scrollback(app: &mut App, path: &str, force: bool) {
     let file = if force {
         std::fs::OpenOptions::new()
@@ -682,8 +678,7 @@ fn write_scrollback(app: &mut App, path: &str, force: bool) {
     };
     let file = match file {
         Ok(f) => f,
-        // Atomic create_new hit an existing file: the same refusal guard the
-        // old metadata() pre-check produced.
+        // Atomic create_new hit an existing file: the refusal guard.
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
             app.set_error(format!("w {path}: exists — use :w! to overwrite"));
             return;
@@ -1604,10 +1599,7 @@ mod tests {
             a.pending_sendfile.is_none(),
             "reconnect must abort a pending sendfile"
         );
-        assert_eq!(
-            a.status_text(),
-            Some("sendfile: aborted (reconnect)")
-        );
+        assert_eq!(a.status_text(), Some("sendfile: aborted (reconnect)"));
         // With the state cleared, pumping can send nothing to any worker.
         let mut drained = 0;
         while rx.try_recv().is_ok() {
@@ -1619,6 +1611,43 @@ mod tests {
             "failed spawn still surfaces its own error"
         );
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn exec_failed_connect_keeps_port_cfg_and_r_retries() {
+        // F3 (fix_pan_second_iter.md): a failed connect must keep `port_cfg`
+        // set (same rule as the --port startup path, which routes through
+        // `connect`), so `:r` retries instead of "r: never connected".
+        let mut a = app();
+        execute(
+            Command::Connect {
+                dev: "/dev/ncom-no-such-device".into(),
+                baud: None,
+            },
+            &mut a,
+            None,
+        );
+        assert!(!a.connected);
+        assert_eq!(
+            a.port_cfg.as_ref().map(|c| c.path.as_str()),
+            Some("/dev/ncom-no-such-device"),
+            "a failed connect keeps the config so :r can retry"
+        );
+        assert!(
+            a.last_error.clone().unwrap().starts_with("connect failed:"),
+            "got: {:?}",
+            a.last_error
+        );
+
+        // `:r` retries the same config and fails with the connect failure
+        // again — never "r: never connected".
+        execute(Command::Reconnect, &mut a, None);
+        let err = a.last_error.clone().unwrap();
+        assert!(
+            err.starts_with("connect failed:"),
+            ":r after a failed startup must retry the connect, got: {err:?}"
+        );
+        assert_ne!(err, "r: never connected");
     }
 
     #[test]
@@ -1687,10 +1716,7 @@ mod tests {
         execute(parse(&format!("log {path}")).unwrap(), &mut a, None);
         assert!(a.log_on);
         assert!(a.logger.is_on());
-        assert_eq!(
-            a.status_text(),
-            Some(format!("log: {path}").as_str())
-        );
+        assert_eq!(a.status_text(), Some(format!("log: {path}").as_str()));
 
         // Bytes written while open land in the file.
         a.record_tx(b"hello\n");
@@ -1768,10 +1794,7 @@ mod tests {
             None,
         );
         let got = std::fs::read_to_string(&path).unwrap();
-        assert_eq!(
-            got, "from ncom\n",
-            "raw bytes, no `> ` prefix in the dump"
-        );
+        assert_eq!(got, "from ncom\n", "raw bytes, no `> ` prefix in the dump");
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -1908,7 +1931,11 @@ mod tests {
     fn parses_echo_all_forms() {
         assert_eq!(parse("echo on"), Ok(Command::Echo(Some("on".into()))));
         assert_eq!(parse("echo off"), Ok(Command::Echo(Some("off".into()))));
-        assert_eq!(parse("echo"), Ok(Command::Echo(None)), "no arg = query form");
+        assert_eq!(
+            parse("echo"),
+            Ok(Command::Echo(None)),
+            "no arg = query form"
+        );
         assert_eq!(
             parse("  echo   "),
             Ok(Command::Echo(None)),
@@ -1918,11 +1945,11 @@ mod tests {
         // through `toggle`: `OFF`/`ON` are invalid values (executor errors).
         assert_eq!(parse("echo OFF"), Ok(Command::Echo(Some("OFF".into()))));
         assert_eq!(parse("echo ON"), Ok(Command::Echo(Some("ON".into()))));
-        assert_eq!(
-            parse("echo maybe"),
-            Ok(Command::Echo(Some("maybe".into())))
+        assert_eq!(parse("echo maybe"), Ok(Command::Echo(Some("maybe".into()))));
+        assert!(
+            parse("Echo on").is_err(),
+            "command names are case-sensitive"
         );
-        assert!(parse("Echo on").is_err(), "command names are case-sensitive");
     }
 
     #[test]
@@ -2161,8 +2188,7 @@ mod tests {
             ":w dumps the FULL scrollback, not the filtered view"
         );
         assert_eq!(
-            a.status_text()
-                .map(|s| s.starts_with("w: wrote 3 lines")),
+            a.status_text().map(|s| s.starts_with("w: wrote 3 lines")),
             Some(true)
         );
         std::fs::remove_dir_all(&dir).ok();

@@ -20,6 +20,15 @@ pub struct Theme {
     /// Local echo (`:echo on`): successfully sent TX lines shown in the
     /// scrollback, rendered with a render-only `> ` prefix (ui.rs).
     pub tx: Color,
+    /// Hex view (`:hex on`) offset column (`0000  `): the least important
+    /// column, so the dimmest of the three hex tones.
+    pub hex_offset: Color,
+    /// Hex view hex byte column: the primary data, so the brightest of the
+    /// three hex tones.
+    pub hex_byte: Color,
+    /// Hex view ASCII gutter: a different hue family than the byte tone so
+    /// the two columns read apart at a glance.
+    pub hex_ascii: Color,
 }
 
 impl Default for Theme {
@@ -54,6 +63,18 @@ impl Default for Theme {
             // Light pink kept from ncom's tx family (distinct from `error`)
             // for `:echo on` TX lines: ~9.4:1 on body, ~8.8:1 on topbar.
             tx: rgb(0xff, 0x9e, 0xd2),
+            // Dim grey-violet → hex view offset column: ~4.99:1 on body — the
+            // dimmest of the three hex tones (the offset is metadata).
+            hex_offset: rgb(0x8a, 0x80, 0xb8),
+            // Light periwinkle → hex view byte column: ~10.41:1 on body — the
+            // brightest of the three hex tones (the bytes are the primary
+            // data).
+            hex_byte: rgb(0xc3, 0xbf, 0xff),
+            // Soft teal-grey → hex view ASCII gutter: ~9.39:1 on body — a hue
+            // family apart from the periwinkle byte tone so the columns read
+            // apart, and dimmer than the bytes (the gutter is a convenience
+            // rendering, not the data).
+            hex_ascii: rgb(0x8f, 0xc7, 0xb8),
         }
     }
 }
@@ -138,7 +159,7 @@ fn parse(text: &str) -> Config {
     Config { theme, warnings }
 }
 
-const THEME_KEYS: [&str; 9] = [
+const THEME_KEYS: [&str; 12] = [
     "topbar",
     "body",
     "foreground",
@@ -148,6 +169,9 @@ const THEME_KEYS: [&str; 9] = [
     "cmd",
     "error",
     "tx",
+    "hex_offset",
+    "hex_byte",
+    "hex_ascii",
 ];
 
 fn apply_theme(table: &toml::Table, theme: &mut Theme, warnings: &mut Vec<String>) {
@@ -189,6 +213,9 @@ fn apply_color(theme: &mut Theme, key: &str, c: Color) {
         "cmd" => theme.cmd = c,
         "error" => theme.error = c,
         "tx" => theme.tx = c,
+        "hex_offset" => theme.hex_offset = c,
+        "hex_byte" => theme.hex_byte = c,
+        "hex_ascii" => theme.hex_ascii = c,
         _ => unreachable!("THEME_KEYS is exhaustive"),
     }
 }
@@ -209,7 +236,7 @@ fn parse_hex(s: &str) -> Option<Color> {
 pub(crate) mod tests {
     use super::*;
 
-    /// Serializes env-var mutation: tests that set XDG_CONFIG_HOME must not run
+    /// Serialises env-var mutation: tests that set XDG_CONFIG_HOME must not run
     /// concurrently with each other (std::env is process-global).
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -384,6 +411,48 @@ pub(crate) mod tests {
         assert_eq!(cfg.theme.tx, Theme::default().tx);
         assert!(
             cfg.warnings.iter().any(|w| w.contains("theme.tx")),
+            "warnings: {:?}",
+            cfg.warnings
+        );
+    }
+
+    #[test]
+    fn hex_column_keys_default_and_override_and_fall_back() {
+        // Defaults: a tonal ladder on the body surface — offset dimmest,
+        // bytes brightest, ASCII gutter in between (and a different hue
+        // family than the byte tone).
+        let d = Theme::default();
+        assert_eq!(d.hex_offset, Color::Rgb(0x8a, 0x80, 0xb8));
+        assert_eq!(d.hex_byte, Color::Rgb(0xc3, 0xbf, 0xff));
+        assert_eq!(d.hex_ascii, Color::Rgb(0x8f, 0xc7, 0xb8));
+        // Missing keys → defaults (older configs without them keep working).
+        let cfg = parse("[theme]\ninsert = \"#010203\"\n");
+        assert_eq!(cfg.theme.hex_offset, Theme::default().hex_offset);
+        assert_eq!(cfg.theme.hex_byte, Theme::default().hex_byte);
+        assert_eq!(cfg.theme.hex_ascii, Theme::default().hex_ascii);
+        assert!(cfg.warnings.is_empty());
+        // Overrides apply per key.
+        let cfg = parse(
+            "[theme]\nhex_offset = \"#111111\"\nhex_byte = \"#222222\"\nhex_ascii = \"#333333\"\n",
+        );
+        assert_eq!(cfg.theme.hex_offset, Color::Rgb(0x11, 0x11, 0x11));
+        assert_eq!(cfg.theme.hex_byte, Color::Rgb(0x22, 0x22, 0x22));
+        assert_eq!(cfg.theme.hex_ascii, Color::Rgb(0x33, 0x33, 0x33));
+        assert!(cfg.warnings.is_empty());
+        // Malformed hex: warning + default fallback, other keys untouched.
+        let cfg = parse("[theme]\nhex_byte = \"nope\"\nhex_offset = \"#0a0b0c\"\n");
+        assert_eq!(cfg.theme.hex_byte, Theme::default().hex_byte);
+        assert_eq!(cfg.theme.hex_offset, Color::Rgb(0x0a, 0x0b, 0x0c));
+        assert!(
+            cfg.warnings.iter().any(|w| w.contains("theme.hex_byte")),
+            "warnings: {:?}",
+            cfg.warnings
+        );
+        // Non-string value: warning + default fallback.
+        let cfg = parse("[theme]\nhex_ascii = 7\n");
+        assert_eq!(cfg.theme.hex_ascii, Theme::default().hex_ascii);
+        assert!(
+            cfg.warnings.iter().any(|w| w.contains("theme.hex_ascii")),
             "warnings: {:?}",
             cfg.warnings
         );

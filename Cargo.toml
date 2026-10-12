@@ -31,6 +31,8 @@ anyhow = "1.0.104"
 toml = "1.1.7"
 serde = { version = "1.0.229", features = ["derive"] }
 dirs = "7.0.0"
+
+[dev-dependencies]
 # pty unit tests: openpty() to create a kernel pty pair
 libc = "0.2"
 

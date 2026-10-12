@@ -2,38 +2,39 @@
 //! `path` in append mode (created if missing, never truncated); `:log off`
 //! closes it.
 //!
-//! Ordering & flush: the main loop is single-threaded, so file order equals
+//! Ordering & durability: the main loop is single-threaded, so file order equals
 //! stream order by construction — TX is written by [`Logger::write`] from
-//! `App::record_tx` after the worker send succeeded (the log never contains
-//! bytes the port never saw; a failed send logs nothing), RX from the drain
-//! path at arrival, before the line splitter. Every write is flushed
-//! immediately so a crash/kill loses nothing already handed to the logger;
-//! flush reaches the OS page cache only — there is no fsync.
+//! `App::record_tx` after the worker-channel send succeeded (bytes are logged
+//! iff they were successfully QUEUED to the serial worker; a later
+//! worker-side write failure can still mean they never reached the wire —
+//! there is no wire-level acknowledgement. A failed send logs nothing), RX
+//! from the drain path at arrival, before the line splitter. Writes go
+//! straight to the open file handle (no buffering layer), so a crash/kill
+//! loses nothing already handed to the logger; data reaches the OS page cache
+//! only — there is no fsync.
 
 use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 
 #[derive(Default)]
 pub struct Logger {
-    writer: Option<BufWriter<std::fs::File>>,
+    writer: Option<std::fs::File>,
 }
 
 impl Logger {
     /// Open `path` for appending (create if missing). A failed open leaves the
     /// previous state untouched (logging stays off / the old file stays open).
     pub fn open(&mut self, path: &str) -> std::io::Result<()> {
-        let file = OpenOptions::new().append(true).create(true).open(path)?;
-        self.writer = Some(BufWriter::new(file));
+        self.writer = Some(OpenOptions::new().append(true).create(true).open(path)?);
         Ok(())
     }
 
-    /// Append raw bytes; flush immediately (see module docs). A no-op while
-    /// logging is off; write/flush errors are swallowed (a dead disk must not
+    /// Append raw bytes, unbuffered (see module docs). A no-op while
+    /// logging is off; write errors are swallowed (a dead disk must not
     /// take down the terminal — the session continues without logging).
     pub fn write(&mut self, bytes: &[u8]) {
         if let Some(w) = self.writer.as_mut() {
             let _ = w.write_all(bytes);
-            let _ = w.flush();
         }
     }
 

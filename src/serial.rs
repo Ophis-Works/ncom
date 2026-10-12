@@ -301,8 +301,8 @@ pub enum ToWorker {
 /// Worker -> main thread events.
 #[derive(Debug)]
 pub enum FromWorker {
-    /// Received chunk with its arrival time.
-    Data(Vec<u8>, Instant),
+    /// Received chunk.
+    Data(Vec<u8>),
     /// The port died (read error / USB unplug). The worker thread has stopped.
     Disconnected(String),
 }
@@ -356,16 +356,18 @@ impl SerialWorker {
                 Ok(0) => {
                     // Read ready but no data: serve commands here too, or a
                     // port reporting Ok(0) forever would busy-spin while
-                    // starving main-thread commands.
+                    // starving main-thread commands. The sleep backs that up:
+                    // unreachable on a tty/pty today, but a persistently
+                    // zero-readable future port type must not spin the core.
+                    std::thread::sleep(Duration::from_millis(1));
                     if self.serve_commands() {
                         break;
                     }
                 }
                 Ok(n) => {
-                    let now = Instant::now();
                     if self
                         .to_main
-                        .send(FromWorker::Data(buf[..n].to_vec(), now))
+                        .send(FromWorker::Data(buf[..n].to_vec()))
                         .is_err()
                     {
                         break; // main thread is gone
@@ -399,9 +401,40 @@ impl SerialWorker {
             match self.from_main.try_recv() {
                 Ok(ToWorker::Tx(bytes)) => match self.port.as_mut() {
                     Some(port) => {
-                        if let Err(e) = port.write_all(&bytes) {
-                            let _ = self.to_main.send(FromWorker::Disconnected(e.to_string()));
-                            return true;
+                        // Offset-tracked write loop. The port timeout (see
+                        // READ_TIMEOUT) applies to WRITES too: serialport
+                        // 4.10.1 `TTYPort::write` first polls for writability
+                        // (`src/posix/tty.rs`, `wait_write_fd(self.fd,
+                        // self.timeout)`) and `src/posix/poll.rs` surfaces an
+                        // expired poll deadline as `ErrorKind::TimedOut` — so
+                        // a flow-controlled peer or a slow-draining link whose
+                        // kernel tty buffer stays full for >25 ms yields
+                        // `TimedOut`, meaning the port is BUSY, not dead.
+                        // Retry from the CURRENT offset (`port.write`) —
+                        // `write_all` aborts on `TimedOut` after partial
+                        // progress, and restarting it would re-transmit the
+                        // already-sent prefix. `Ok(0)` is fatal (no progress).
+                        // Trade-off: while a write retries, this
+                        // single-threaded worker cannot serve further commands
+                        // — inherent to a blocking write under paused flow
+                        // control.
+                        let mut off = 0usize;
+                        while off < bytes.len() {
+                            match port.write(&bytes[off..]) {
+                                Ok(0) => {
+                                    let _ = self.to_main.send(FromWorker::Disconnected(
+                                        "port write made no progress".into(),
+                                    ));
+                                    return true;
+                                }
+                                Ok(n) => off += n,
+                                Err(e) if e.kind() == IoErrorKind::TimedOut => continue,
+                                Err(e) => {
+                                    let _ =
+                                        self.to_main.send(FromWorker::Disconnected(e.to_string()));
+                                    return true;
+                                }
+                            }
                         }
                         let _ = port.flush();
                     }
@@ -761,14 +794,14 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Task 9: end-to-end worker test against a real kernel pty pair
+    // End-to-end worker test against a real kernel pty pair
     // ------------------------------------------------------------------
 
     /// Create a pty master/slave with `openpty()` (libc; the slave is a real
     /// tty, so `serialport` opens it through the same TTYPort path used for
     /// `/dev/ttyUSB*`, serialport 4.10.1 `src/posix/tty.rs`). Returns the
     /// blocking master fd-wrapped File and the slave's `/dev/pts/N` path
-    /// (resolved via `/proc/self/fd` — Linux-first per spec decision 4).
+    /// (resolved via `/proc/self/fd` — Linux-first).
     fn pty_pair() -> (std::fs::File, String) {
         use std::os::fd::FromRawFd;
         let mut master: i32 = -1;
@@ -836,7 +869,7 @@ mod tests {
         master.write_all(b"hello\r\n").unwrap();
         let chunk = wait_for(Duration::from_secs(2), || {
             from_worker.try_recv().ok().map(|ev| match ev {
-                FromWorker::Data(bytes, _) => bytes,
+                FromWorker::Data(bytes) => bytes,
                 FromWorker::Disconnected(e) => panic!("unexpected disconnect: {e}"),
             })
         });
@@ -861,6 +894,81 @@ mod tests {
         assert!(!err.is_empty(), "disconnect must carry the OS error text");
         // Dropping the sender lets the worker's command poll see the closed
         // channel; the thread has already exited its run loop by now.
+        drop(to_worker);
+    }
+
+    /// A full kernel tty output buffer must not kill the connection: with the
+    /// pty's output suspended (`tcflow(TCOOFF)` on the master fd — the shared
+    /// pty line discipline stops draining the slave's write queue), a large
+    /// `ToWorker::Tx` makes `port.write` hit the 25 ms poll deadline
+    /// (`ErrorKind::TimedOut`, serialport 4.10.1 `src/posix/poll.rs`). The
+    /// worker must retry from the current offset, NOT report `Disconnected`
+    /// (the old `write_all` path did), and after `TCOON` the master must read
+    /// the exact byte sequence — complete, in order, no duplicated prefix.
+    #[test]
+    fn worker_tx_retries_through_full_tty_buffer_over_pty() {
+        use std::io::Read;
+        use std::os::fd::AsRawFd;
+
+        let (mut master, slave_path) = pty_pair();
+        let (to_worker, from_worker) =
+            SerialWorker::spawn(pty_cfg(slave_path)).expect("spawn on pty");
+
+        // Far more than any pty output buffer: forces TimedOut retries.
+        let total = 256 * 1024;
+        let payload: Vec<u8> = (0..total).map(|i| (i % 251 + 1) as u8).collect();
+
+        // Suspend pty output: the slave's writes can no longer drain.
+        assert_eq!(unsafe { libc::tcflow(master.as_raw_fd(), libc::TCOOFF) }, 0);
+
+        to_worker.send(ToWorker::Tx(payload.clone())).unwrap();
+
+        // Bounded window: the old code disconnected on the FIRST 25 ms write
+        // timeout; the retrying worker must keep quiet while the port is busy.
+        let quiet_deadline = Instant::now() + Duration::from_millis(500);
+        while Instant::now() < quiet_deadline {
+            match from_worker.try_recv() {
+                Err(mpsc::TryRecvError::Empty) => {}
+                Ok(ev) => panic!("unexpected event while paused: {ev:?}"),
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    panic!("worker stopped while the port was merely busy")
+                }
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        // Resume output and drain every byte.
+        assert_eq!(unsafe { libc::tcflow(master.as_raw_fd(), libc::TCOON) }, 0);
+        let mut got = Vec::with_capacity(total);
+        let mut buf = [0u8; 8192];
+        let drain_deadline = Instant::now() + Duration::from_secs(20);
+        while got.len() < total {
+            assert!(
+                Instant::now() < drain_deadline,
+                "TX never completed after TCOON (got {} of {total})",
+                got.len()
+            );
+            match master.read(&mut buf) {
+                Ok(0) => panic!("master EOF before all bytes arrived"),
+                Ok(n) => got.extend_from_slice(&buf[..n]),
+                Err(e) => panic!("master read failed: {e}"),
+            }
+            if let Ok(ev) = from_worker.try_recv() {
+                panic!("unexpected worker event mid-drain: {ev:?}");
+            }
+        }
+        assert_eq!(got, payload, "bytes must arrive exactly once, in order");
+
+        // The worker survived: round-trip one more frame.
+        to_worker
+            .send(ToWorker::Tx(b"still-alive\n".to_vec()))
+            .unwrap();
+        let mut buf = [0u8; 16];
+        let n = wait_for(Duration::from_secs(2), || {
+            use std::io::Read as _;
+            master.read(&mut buf).ok().filter(|&n| n > 0)
+        });
+        assert_eq!(&buf[..n], b"still-alive\n");
         drop(to_worker);
     }
 

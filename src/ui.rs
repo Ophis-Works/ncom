@@ -6,7 +6,7 @@
 //! feedback (port DOWN, last error, warnings, status messages). Commands and
 //! their feedback only; view flags live on the top bar.
 //!
-//! Theming: the top bar uses the exact theme `topbar` color; all body areas
+//! Theming: the top bar uses the exact theme `topbar` colour; all body areas
 //! are painted `theme.body` (a shade darker than the bar by default) before
 //! widgets render.
 
@@ -24,15 +24,15 @@ use crate::serial::{NcomFlow, NcomParity, NcomStopBits, decode_lossy_caret};
 /// height (`viewport_rows`) for the NORMAL-mode page motions.
 pub fn render(frame: &mut Frame, app: &mut App) {
     let theme = app.theme;
-    // Top bar keeps the exact theme `topbar` color; the body areas are
+    // Top bar keeps the exact theme `topbar` colour; the body areas are
     // repainted
-    // with the darkened variant below (spec: body a shade darker than the bar).
+    // with the darkened variant below (body a shade darker than the bar).
     let area = frame.area();
     let frame_style = Style::new().fg(theme.foreground).bg(theme.topbar);
     frame.buffer_mut().set_style(area, frame_style);
 
     let base = Style::new().fg(theme.foreground).bg(theme.topbar);
-    // Body base style: same foreground, the configured body color (a shade
+    // Body base style: same foreground, the configured body colour (a shade
     // darker than the bar by default — see the `body` theme key).
     let body_bg = theme.body;
     let base_body = Style::new().fg(theme.foreground).bg(body_bg);
@@ -97,7 +97,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 }
 
 // ---------------------------------------------------------------------------
-// `:help` popup (centered, light grey, mode-independent modal)
+// `:help` popup (centred, light grey, mode-independent modal)
 // ---------------------------------------------------------------------------
 
 /// Fixed popup palette, deliberately NOT theme-derived: the light-grey card on
@@ -115,27 +115,27 @@ const HELP_BORDER: Color = Color::Rgb(0x50, 0x50, 0x50);
 pub(crate) const HELP_POPUP_MAX_WIDTH: u16 = 64;
 
 /// Size policy (roughly square, always fits the terminal):
-/// - width: `min(area.width - 4, HELP_POPUP_MAX_WIDTH)` — 64 comfortably fits
-///   the longest help entry (47 chars) plus the 2 border columns; the `-4`
-///   leaves a visible margin. Clamped to at least 10 and at most
-///   `area.width` for tiny terminals.
+/// - width: `min(area.width - 4, HELP_POPUP_MAX_WIDTH)` — the cap fits the
+///   longest help entry plus the 2 border columns (see
+///   [`HELP_POPUP_MAX_WIDTH`]); the `-4` leaves a visible margin. Clamped to
+///   at least 10 and at most `area.width` for tiny terminals.
 /// - height: SHARED by both pages — `max over pages p of
 ///   help_page_lines(p).count()` + 2 (one border row per edge), so
 ///   switching pages does not resize the popup; the taller page is page 1
 ///   (27 content lines vs page 2's 22). Clamped to `area.height`.
 ///
-/// Layout decision (documented per spec): a single column at the fixed
+/// Layout decision: a single column at the fixed
 /// 64-column width is kept, split across TWO PAGES instead of one long
 /// popup so the full content fits common terminal heights. A two-column
 /// split would need the longest
 /// `:` command line (43 chars) to fit half the interior (31 columns), which
 /// means rewriting the command descriptions; a wider popup would not help
 /// height, which is the binding constraint. Correctness on small terminals
-/// is prioritized: the height simply clamps to `area.height`, so the popup
+/// is prioritised: the height simply clamps to `area.height`, so the popup
 /// never overflows the
 /// frame — on terminals shorter than the shared page height the tail lines
 /// are clipped, which trades completeness on very short terminals for a
-/// guaranteed, non-panicking, centered layout.
+/// guaranteed, non-panicking, centred layout.
 ///
 /// Page indicator + navigation hint: the top border title is
 /// ` help [1/2]  j: next  k: prev  esc: close ` (1-based page, hint on BOTH
@@ -147,7 +147,7 @@ pub(crate) const HELP_POPUP_MAX_WIDTH: u16 = 64;
 /// truncated (graceful degradation, simplest correct handling).
 ///
 /// Centering: ratatui 0.30 `Layout::vertical/horizontal([Constraint::Length(n)])
-/// .flex(Flex::Center)` — `Flex::Center` centers the single Length-constrained
+/// .flex(Flex::Center)` — `Flex::Center` centres the single Length-constrained
 /// chunk inside the given area (docs.rs/ratatui/0.30.2 — Layout::flex,
 /// ratatui-core `layout::Flex`, verified in the vendored crate source:
 /// ratatui-core-0.1.2/src/layout/flex.rs, layout.rs `pub const fn flex`).
@@ -244,7 +244,7 @@ fn render_top_bar(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base:
     // `ncom  line hex ts` when all on, bare `ncom` when all off — rendered
     // dimmed in the theme foreground so they read as secondary information
     // next to the app name without stealing focus from the connection info;
-    // theme-consistent because it reuses the theme's own fg/top-bar colors.
+    // theme-consistent because it reuses the theme's own fg/top-bar colours.
     let mut flags: Vec<&'static str> = Vec::new();
     if app.insert_style == InsertStyle::Line {
         flags.push("line");
@@ -308,8 +308,8 @@ fn mode_color(theme: &Theme, mode: Mode) -> ratatui::style::Color {
     }
 }
 
-/// `port baud/D-P-S-flow` when connected, `disconnected` otherwise (spec: the
-/// top-bar center shows `disconnected` when the port is down — the device path
+/// `port baud/D-P-S-flow` when connected, `disconnected` otherwise: the
+/// top-bar centre shows `disconnected` when the port is down — the device path
 /// stays visible in the DOWN status flag / `:r` context, and the last settings
 /// are still in `App::port_cfg` for the reconnect).
 pub fn connection_info(app: &App) -> String {
@@ -434,7 +434,7 @@ fn text_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Styl
         }
         lines.push(RtLine::from(spans));
     }
-    // Empty rows stay theme-colored: pad with blank themed lines.
+    // Empty rows stay theme-coloured: pad with blank themed lines.
     for _ in lines.len()..area.height as usize {
         lines.push(RtLine::from(Span::styled("", base)));
     }
@@ -453,7 +453,7 @@ fn text_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Styl
 /// spans would have to cut into the fixed-width hex columns, and the hexdump
 /// is for byte-exact reading, not prose. TX-echo lines (`:echo on`) render
 /// like ANY other line here — byte-exact reading is the point of this view,
-/// so no `> ` prefix and no `theme.tx` color (documented choice: hex stays
+/// so no `> ` prefix and no `theme.tx` colour (documented choice: hex stays
 /// neutral; the text view carries the TX styling).
 ///
 /// Viewport sizing rule: [`visible_lines`] selects LINES, but a stored line
@@ -466,19 +466,44 @@ fn text_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Styl
 /// exists to show. Short buffers pad with blank themed lines as in the text
 /// view. Rendering API: ratatui 0.30 `Paragraph` + styled `Span`s
 /// (docs.rs/ratatui/0.30.2/ratatui/widgets/struct.Paragraph.html).
-fn hex_body(frame: &mut Frame, area: Rect, app: &App, _theme: &Theme, base: Style) {
+fn hex_body(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Style) {
     let dim = base
         .fg(ratatui::style::Color::Rgb(0x9a, 0x8f, 0xb8))
         .add_modifier(Modifier::DIM);
+    // Three hex-column tones (each its own theme key, AA on `body` by
+    // default): the offset is metadata → dimmest (`hex_offset`), the bytes
+    // are the primary data → brightest (`hex_byte`), and the ASCII gutter is
+    // a convenience rendering in a different hue family (`hex_ascii`). The
+    // `:ts` stamp and the truncation `…` stay `dim` — metadata keeps the
+    // existing style regardless of the column it sits next to.
+    let offset_style = base.fg(theme.hex_offset);
+    let byte_style = base.fg(theme.hex_byte);
+    let ascii_style = base.fg(theme.hex_ascii);
     let height = area.height as usize;
     let visible = visible_lines(app, height);
-    let mut rows_per_line: Vec<Vec<RtLine>> = Vec::with_capacity(visible.len());
-    for line in visible {
+    // Spend the row budget newest-first (see the sizing rule above): rows are
+    // generated only while budget remains, whole older lines are skipped once
+    // the budget is gone, and the oldest survivor contributes only its FINAL
+    // rows (leading rows are never generated) — so a 64 KiB line costs at
+    // most `height` generated rows, not all `ceil(len/16)` of them.
+    let mut blocks: Vec<Vec<RtLine>> = Vec::with_capacity(height);
+    let mut budget = height;
+    for line in visible.iter().rev() {
+        if budget == 0 {
+            break;
+        }
         if line.bytes.is_empty() {
-            rows_per_line.push(vec![RtLine::from(Span::styled("", base))]);
+            blocks.push(vec![RtLine::from(Span::styled("", base))]);
+            budget -= 1;
             continue;
         }
-        let mut rows = Vec::new();
+        let total_rows = line.bytes.len().div_ceil(16);
+        let (first_row, kept) = if total_rows <= budget {
+            (0, total_rows)
+        } else {
+            // Oldest survivor: keep only its final `budget` rows.
+            (total_rows - budget, budget)
+        };
         // With `:ts on` the first row carries the 13-char wall-clock stamp;
         // continuation rows carry a BLANK stamp of the same width so the
         // offset/hex/ascii columns stay aligned across the whole block (the
@@ -488,7 +513,8 @@ fn hex_body(frame: &mut Frame, area: Rect, app: &App, _theme: &Theme, base: Styl
         } else {
             0
         };
-        for (row, (hex, ascii)) in hexdump_parts(&line.bytes).into_iter().enumerate() {
+        let mut rows: Vec<RtLine> = Vec::with_capacity(kept);
+        for row in first_row..total_rows {
             let mut spans = Vec::with_capacity(3);
             if row == 0 && app.ts_on {
                 spans.push(Span::styled(
@@ -498,35 +524,32 @@ fn hex_body(frame: &mut Frame, area: Rect, app: &App, _theme: &Theme, base: Styl
             } else if stamp_width > 0 {
                 spans.push(Span::styled(" ".repeat(stamp_width), dim));
             }
-            spans.push(Span::styled(hex, base));
+            let (hex, ascii) = hexdump_row(&line.bytes, row);
+            // Split the fixed-width hex column into offset span (the `0000  `
+            // prefix, 6 chars) and byte span (the rest — including the
+            // trailing padding spaces on a partial row, so column alignment
+            // is unchanged; the row TEXT is byte-identical to before).
+            // Owned splits: ratatui 0.30 `Span` stores text by value, not by
+            // borrow (see the `visible` borrow error this avoids).
+            spans.push(Span::styled(hex[..6].to_string(), offset_style));
+            spans.push(Span::styled(hex[6..].to_string(), byte_style));
             // Truncation marker (text view appends `…` too; documented choice:
             // appended after the ASCII gutter so the hex columns stay aligned;
             // per-LINE flag, so every row of a truncated line carries it).
             if line.flags.truncated {
                 spans.push(Span::styled(format!("{ascii}…"), dim));
             } else {
-                spans.push(Span::styled(ascii, base));
+                spans.push(Span::styled(ascii, ascii_style));
             }
             rows.push(RtLine::from(spans));
         }
-        rows_per_line.push(rows);
+        blocks.push(rows);
+        budget -= kept;
     }
-    // Spend the row budget newest-first (see the sizing rule above): drop
-    // whole older lines, then trim the oldest survivor down to its final rows.
-    let mut total: usize = rows_per_line.iter().map(Vec::len).sum();
-    let mut first = 0usize;
-    while first < rows_per_line.len() && total > height {
-        let n = rows_per_line[first].len();
-        if total - n >= height {
-            total -= n;
-            first += 1;
-        } else {
-            let keep = height - (total - n);
-            rows_per_line[first].drain(..n - keep);
-            total = height;
-        }
-    }
-    let mut lines: Vec<RtLine> = rows_per_line.into_iter().skip(first).flatten().collect();
+    // Blocks were generated newest-first; display is oldest-first. Rows
+    // WITHIN a block stay in ascending-offset order either way.
+    blocks.reverse();
+    let mut lines: Vec<RtLine> = blocks.into_iter().flatten().collect();
     for _ in lines.len()..height {
         lines.push(RtLine::from(Span::styled("", base)));
     }
@@ -534,7 +557,7 @@ fn hex_body(frame: &mut Frame, area: Rect, app: &App, _theme: &Theme, base: Styl
 }
 
 /// The rows of one canonical hexdump: per row `(hex column, ascii gutter)`.
-/// Format decisions (documented per task 8):
+/// Format decisions:
 /// - **Per-line RELATIVE offset column** (`0000`, `0010`, … — 4 lowercase hex
 ///   digits + two spaces). Still **no absolute offsets**: the scrollback is a
 ///   ring buffer whose front is evicted at 10 000 lines, so a running file-
@@ -552,29 +575,35 @@ fn hex_body(frame: &mut Frame, area: Rect, app: &App, _theme: &Theme, base: Styl
 /// yields no rows at all (the renderer draws a blank line instead).
 pub fn hexdump_parts(bytes: &[u8]) -> Vec<(String, String)> {
     let mut rows = Vec::with_capacity(bytes.len().div_ceil(16));
-    let mut offset = 0usize;
-    while offset < bytes.len() {
-        let chunk = &bytes[offset..(offset + 16).min(bytes.len())];
-        let mut hex = String::with_capacity(48);
-        let mut ascii = String::with_capacity(16);
-        for i in 0..16 {
-            match chunk.get(i) {
-                Some(&b) => {
-                    hex.push_str(&format!("{b:02x} "));
-                    ascii.push(if (0x20..=0x7e).contains(&b) {
-                        b as char
-                    } else {
-                        '.'
-                    });
-                }
-                None => hex.push_str("   "),
-            }
-        }
-        hex.pop(); // no trailing space after the 16th pair
-        rows.push((format!("{offset:04x}  {hex}"), format!("  {ascii}")));
-        offset += 16;
+    for row in 0..bytes.len().div_ceil(16) {
+        rows.push(hexdump_row(bytes, row));
     }
     rows
+}
+
+/// Row `row` (0-based) of the canonical hexdump: same format as
+/// [`hexdump_parts`], one row at a time — the hex view uses this to generate
+/// only the rows the viewport actually shows instead of a whole block.
+fn hexdump_row(bytes: &[u8], row: usize) -> (String, String) {
+    let offset = row * 16;
+    let chunk = &bytes[offset..(offset + 16).min(bytes.len())];
+    let mut hex = String::with_capacity(48);
+    let mut ascii = String::with_capacity(16);
+    for i in 0..16 {
+        match chunk.get(i) {
+            Some(&b) => {
+                hex.push_str(&format!("{b:02x} "));
+                ascii.push(if (0x20..=0x7e).contains(&b) {
+                    b as char
+                } else {
+                    '.'
+                });
+            }
+            None => hex.push_str("   "),
+        }
+    }
+    hex.pop(); // no trailing space after the 16th pair
+    (format!("{offset:04x}  {hex}"), format!("  {ascii}"))
 }
 
 /// Single-string convenience form of [`hexdump_parts`] (rows joined by
@@ -659,7 +688,7 @@ fn render_prompt_line(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, b
 ///
 /// Single pass over the line's chars: one `Vec<char>` collect, then one scan
 /// checking every match position allocation-free ([`crate::app::chars_match_ci`]
-/// semantics — identical match behavior to `find_ci`). The old shape rebuilt a
+/// semantics — identical match behaviour to `find_ci`). The old shape rebuilt a
 /// suffix `String` (plus two `Vec<char>`s inside `find_ci`) at EVERY position:
 /// O(n²) allocations; this is O(n) allocations, O(n · p) comparisons (see the
 /// complexity note on `find_ci`).
@@ -699,7 +728,7 @@ fn highlight_spans(text: &str, pattern: &str, base: Style, hl: Style) -> Vec<Spa
 /// Command feedback row (bottom row, non-COMMAND mode). The view flags used
 /// to be here — they moved to the top bar (see [`render_top_bar`]). DOWN
 /// choice: the red `DOWN` indicator STAYS on this row (it is command feedback
-/// like the last error, and the top-bar center already flips to
+/// like the last error, and the top-bar centre already flips to
 /// `disconnected` on the same state, so the connection state is visible at
 /// all times without duplicating it on the bar).
 fn render_status_line(frame: &mut Frame, area: Rect, app: &App, theme: &Theme, base: Style) {
@@ -771,7 +800,7 @@ mod tests {
     use std::time::SystemTime;
 
     // ------------------------------------------------------------------
-    // `:help` popup (centered light-grey modal, two pages)
+    // `:help` popup (centred light-grey modal, two pages)
     // ------------------------------------------------------------------
 
     /// Render `cols`x`rows` (TestBackend width x height) with `app` and return
@@ -824,7 +853,7 @@ mod tests {
             .expect("top border right col");
         let right = (row(top).chars().count() - 1 - right) as u16;
 
-        // Card of the documented size, centered: equal margins on left/right
+        // Card of the documented size, centred: equal margins on left/right
         // (even split) and the vertical margins within one row of each other
         // (odd remainder splits unevenly).
         assert_eq!(right - left + 1, width);
@@ -1240,7 +1269,7 @@ mod tests {
         // wide enough (>=68 cols) give the popup the full cap. Every rendered
         // line on both pages is checked: each section, its header, the empty
         // HELP_SECTION_SPACERS lines (which pass trivially), and the
-        // width-normalized entries (name padded to the page's common column,
+        // width-normalised entries (name padded to the page's common column,
         // so the widest line is column + longest description).
         assert_eq!(crate::ui::HELP_POPUP_MAX_WIDTH, 64);
         let interior = crate::ui::HELP_POPUP_MAX_WIDTH - 2; // 62
@@ -1272,7 +1301,7 @@ mod tests {
 
     #[test]
     fn help_descriptions_align_to_one_common_column_per_page() {
-        // Width normalization invariant: on EACH page every entry that
+        // Width normalisation invariant: on EACH page every entry that
         // carries a 2+ space name separator starts its description at the
         // SAME char column, and that column is exactly the page's longest
         // name + the 2-space separator (computed from the data, not
@@ -1427,10 +1456,10 @@ mod tests {
         let mut a = App::new(&Config::default());
         let t0 = std::time::Instant::now();
         let (tx, rx) = std::sync::mpsc::channel();
-        tx.send(crate::serial::FromWorker::Data(
-            vec![b'z'; MAX_PARTIAL_LINE + 3],
-            std::time::Instant::now(),
-        ))
+        tx.send(crate::serial::FromWorker::Data(vec![
+            b'z';
+            MAX_PARTIAL_LINE + 3
+        ]))
         .unwrap();
         a.connected = true;
         a.drain_worker_at(&rx, t0);
@@ -1465,7 +1494,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Task 8: hex view (hexdump formatting + headless render)
+    // Hex view (hexdump formatting + headless render)
     // ------------------------------------------------------------------
 
     #[test]
@@ -1558,6 +1587,16 @@ mod tests {
         a.hex_on = true;
         a.ts_on = true;
 
+        // chrono's Local reads the process-global TZ; pin it so the fixed
+        // instant renders as UTC regardless of the host timezone (and of
+        // tests that mutate TZ, e.g. app.rs `ts_formatting`). Guarded by the
+        // shared test env lock (std::env is process-global).
+        let _guard = crate::config::tests::lock_env_for_test();
+        let prev_tz = std::env::var("TZ").ok();
+        // SAFETY: single-threaded w.r.t. env mutation (guarded by the shared
+        // test env lock); test harness never reads TZ concurrently.
+        unsafe { std::env::set_var("TZ", "UTC0") };
+
         let backend = ratatui::backend::TestBackend::new(90, 5);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
         terminal.draw(|f| render(f, &mut a)).unwrap();
@@ -1583,6 +1622,46 @@ mod tests {
         // Padding row below the block stays blank.
         assert!(row(3).trim().is_empty(), "{}", row(3));
         assert_eq!(DEFAULT_SCROLLBACK, 10_000);
+
+        // Restore the host's TZ before releasing the env lock.
+        match prev_tz {
+            Some(v) => unsafe { std::env::set_var("TZ", v) },
+            None => unsafe { std::env::remove_var("TZ") },
+        }
+    }
+
+    #[test]
+    fn hex_body_renders_only_budget_tail_rows_for_oversized_line() {
+        use crate::app::{DEFAULT_SCROLLBACK, LineFlags};
+        use std::time::SystemTime;
+
+        let mut a = App::new(&Config::default());
+        // One 17 KiB line: 1088 hexdump rows — far more than any viewport.
+        // Byte i is (i % 256) so every row's content is predictable.
+        let bytes: Vec<u8> = (0..17 * 1024).map(|i| (i % 256) as u8).collect();
+        a.push_line(bytes, SystemTime::UNIX_EPOCH, LineFlags::default());
+        a.hex_on = true;
+        assert_eq!(DEFAULT_SCROLLBACK, 10_000);
+
+        // Viewport height 6: top bar (1) + body (4) + bottom bar (1). The
+        // whole 1088-row block must be trimmed to the FINAL 4 body rows
+        // (rows 1084..1088, i.e. offsets 0x43c0..0x43f0) — never the leading
+        // rows.
+        let backend = ratatui::backend::TestBackend::new(90, 6);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let row =
+            |y: u16| -> String { (0..90).map(|x| buf[(x, y)].symbol().to_string()).collect() };
+        let offsets = ["43c0", "43d0", "43e0", "43f0"];
+        for (y, off) in offsets.iter().enumerate() {
+            let r = row(1 + y as u16);
+            assert!(r.starts_with(off), "body row {y}: {}", r);
+        }
+        // The final row covers bytes 17392..=17407 (= 0xf0..=0xff: 17392 %
+        // 256 == 240) — every one non-printable, so the ASCII gutter is 16
+        // dots.
+        assert!(row(4)[55..].starts_with(&".".repeat(16)), "{}", row(4));
     }
 
     // ------------------------------------------------------------------
@@ -1593,7 +1672,7 @@ mod tests {
     fn mode_chip_renders_display_labels_even_on_narrow_terminal() {
         // Display labels only: the chip shows COMMAND MODE / SERIAL MODE (the
         // Mode enum keeps its vi identifiers). "COMMAND MODE" is 12 chars, so
-        // render at a width where left flags, centered info and the chip
+        // render at a width where left flags, centred info and the chip
         // overlap — must not panic, and the chip stays right-aligned.
         let mut a = App::new(&Config::default());
         a.hex_on = true;
@@ -1677,7 +1756,7 @@ mod tests {
         terminal.draw(|f| render(f, &mut a)).unwrap();
         let buf = terminal.backend().buffer().clone();
         assert_eq!(row(&buf, 2).trim_end(), "DOWN");
-        // ...while the top-bar center shows `disconnected` for the same state.
+        // ...while the top-bar centre shows `disconnected` for the same state.
         assert!(row(&buf, 0).contains("disconnected"));
     }
 
@@ -1722,7 +1801,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Body darker than top bar (explicit `body` theme color)
+    // Body darker than top bar (explicit `body` theme colour)
     // ------------------------------------------------------------------
 
     #[test]
@@ -1733,9 +1812,9 @@ mod tests {
         terminal.draw(|f| render(f, &mut a)).unwrap();
         let buf = terminal.backend().buffer().clone();
         let theme = Config::default().theme;
-        // Row 0 = top bar: exact theme `topbar` color.
+        // Row 0 = top bar: exact theme `topbar` colour.
         assert_eq!(buf[(0, 0)].bg, theme.topbar);
-        // Body row and status row: the configured body color, different
+        // Body row and status row: the configured body colour, different
         // from (and darker than) the bar.
         assert_eq!(buf[(0, 1)].bg, theme.body);
         assert_eq!(buf[(0, 4)].bg, theme.body);
@@ -1754,6 +1833,16 @@ mod tests {
         a.hex_on = true;
         a.ts_on = true;
 
+        // chrono's Local reads the process-global TZ; pin it so the fixed
+        // instant renders as UTC regardless of the host timezone (and of
+        // tests that mutate TZ, e.g. app.rs `ts_formatting`). Guarded by the
+        // shared test env lock (std::env is process-global).
+        let _guard = crate::config::tests::lock_env_for_test();
+        let prev_tz = std::env::var("TZ").ok();
+        // SAFETY: single-threaded w.r.t. env mutation (guarded by the shared
+        // test env lock); test harness never reads TZ concurrently.
+        unsafe { std::env::set_var("TZ", "UTC0") };
+
         let backend = ratatui::backend::TestBackend::new(90, 4);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
         terminal.draw(|f| render(f, &mut a)).unwrap();
@@ -1771,6 +1860,12 @@ mod tests {
         // Empty line renders blank (zero-byte hexdump), not an offset row.
         assert!(row(2).trim().is_empty(), "{}", row(2));
         assert_eq!(DEFAULT_SCROLLBACK, 10_000);
+
+        // Restore the host's TZ before releasing the env lock.
+        match prev_tz {
+            Some(v) => unsafe { std::env::set_var("TZ", v) },
+            None => unsafe { std::env::remove_var("TZ") },
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1921,7 +2016,7 @@ mod tests {
 
     #[test]
     fn hl_whole_line_uses_theme_hl_key_when_customized() {
-        // Custom `hl` color: the whole-line `:hl` highlight switches to
+        // Custom `hl` colour: the whole-line `:hl` highlight switches to
         // theme.hl, while `/` search matches stay on theme.insert — the two
         // highlights have distinct theme keys (and distinct default accents).
         let cfg = Config {
@@ -1943,7 +2038,7 @@ mod tests {
         terminal.draw(|f| render(f, &mut a)).unwrap();
         let buf = terminal.backend().buffer().clone();
         let theme = cfg.theme;
-        // hl-matching line: whole line in the custom hl color.
+        // hl-matching line: whole line in the custom hl colour.
         assert_eq!(buf[(0, 1)].fg, theme.hl, "whole-line hl uses theme.hl");
         assert_eq!(buf[(8, 1)].fg, theme.hl);
         // Non-hl line: search match keeps theme.insert (NOT the custom hl).
@@ -1999,7 +2094,7 @@ mod tests {
     #[test]
     fn tx_echo_line_renders_prefix_in_tx_color_over_hl_and_search() {
         // Local echo (`:echo on`) line: the render-only `> ` prefix plus the
-        // whole line render in `theme.tx` — and the TX color WINS over both
+        // whole line render in `theme.tx` — and the TX colour WINS over both
         // the whole-line `:hl` accent and `/` search spans (documented
         // precedence). No BOLD: TX lines are content, not an alert.
         let mut a = App::new(&Config::default());
@@ -2030,7 +2125,8 @@ mod tests {
         );
         for x in 0..15u16 {
             assert_eq!(
-                buf[(x, 1)].fg, tx,
+                buf[(x, 1)].fg,
+                tx,
                 "col {x} (`{}`) renders in theme.tx",
                 buf[(x, 1)].symbol()
             );
@@ -2056,7 +2152,7 @@ mod tests {
     #[test]
     fn tx_lines_render_neutral_in_hex_view() {
         // Hex view stays neutral: TX lines render like any line (byte-exact
-        // hexdump), no `> ` prefix and no `theme.tx` color (documented).
+        // hexdump), no `> ` prefix and no `theme.tx` colour (documented).
         let mut a = App::new(&Config::default());
         a.hex_on = true;
         let t = SystemTime::now();
@@ -2078,11 +2174,111 @@ mod tests {
         assert!(body.contains("0000"), "hexdump row: {body}");
         assert!(body.contains("61 62 63"), "hexdump row: {body}");
         assert!(!body.contains('>'), "no `> ` prefix in hex view: {body}");
+        // Neutral means neutral: neither the offset column (col 0) nor the
+        // ASCII gutter (col 55) carries the TX accent — the gutter has its
+        // own `hex_ascii` theme key now, the offset `hex_offset`.
         assert_ne!(
             buf[(0, 1)].fg,
             Config::default().theme.tx,
-            "hex gutter stays base-colored"
+            "hex offset column stays un-TX"
         );
+        assert_ne!(
+            buf[(55, 1)].fg,
+            Config::default().theme.tx,
+            "hex gutter stays un-TX"
+        );
+    }
+
+    #[test]
+    fn hex_columns_render_three_distinct_theme_colors() {
+        // The `:hex on` row splits into three themed spans: the offset
+        // column (`0000  `, cols 0..6) in `hex_offset`, the hex byte column
+        // (cols 6..53, padding included) in `hex_byte`, and the ASCII gutter
+        // (cols 53..) in `hex_ascii`. Row text is unchanged — only styles.
+        let mut a = App::new(&Config::default());
+        a.hex_on = true;
+        let t = SystemTime::now();
+        a.push_line(b"hi".to_vec(), t, LineFlags::default());
+        let backend = ratatui::backend::TestBackend::new(90, 4);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let theme = Config::default().theme;
+        let row =
+            |y: u16| -> String { (0..90).map(|x| buf[(x, y)].symbol().to_string()).collect() };
+        assert!(row(1).starts_with("0000  68 69"), "{}", row(1));
+        for x in 0..6u16 {
+            assert_eq!(
+                buf[(x, 1)].fg,
+                theme.hex_offset,
+                "offset col {x} (`{}`) in theme.hex_offset",
+                buf[(x, 1)].symbol()
+            );
+        }
+        for x in 6..53u16 {
+            assert_eq!(
+                buf[(x, 1)].fg,
+                theme.hex_byte,
+                "hex col {x} (`{}`) in theme.hex_byte (padding included)",
+                buf[(x, 1)].symbol()
+            );
+        }
+        for x in 53..55u16 {
+            assert_eq!(
+                buf[(x, 1)].fg,
+                theme.hex_ascii,
+                "gutter pad col {x} in theme.hex_ascii (`{}`)",
+                buf[(x, 1)].symbol()
+            );
+        }
+        // The two printable gutter chars (`hi`).
+        for x in 55..57u16 {
+            assert_eq!(
+                buf[(x, 1)].fg,
+                theme.hex_ascii,
+                "gutter col {x} (`{}`) in theme.hex_ascii",
+                buf[(x, 1)].symbol()
+            );
+        }
+        // Three DISTINCT tones — no two columns share a colour by default.
+        assert_ne!(theme.hex_offset, theme.hex_byte);
+        assert_ne!(theme.hex_byte, theme.hex_ascii);
+        assert_ne!(theme.hex_offset, theme.hex_ascii);
+    }
+
+    #[test]
+    fn hex_partial_row_padding_stays_in_the_hex_byte_span() {
+        // A partial (sub-16-byte) final row pads the hex column with spaces;
+        // those spaces belong to the `hex_byte` span so the ASCII gutter
+        // stays column-aligned across rows (text unchanged, only styles).
+        let mut a = App::new(&Config::default());
+        a.hex_on = true;
+        let t = SystemTime::now();
+        a.push_line(b"abc".to_vec(), t, LineFlags::default());
+        let backend = ratatui::backend::TestBackend::new(90, 4);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &mut a)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let theme = Config::default().theme;
+        let row =
+            |y: u16| -> String { (0..90).map(|x| buf[(x, y)].symbol().to_string()).collect() };
+        assert!(row(1).starts_with("0000  61 62 63"), "{}", row(1));
+        // Gutter alignment (ts off): ASCII starts at col 55 on every row
+        // (6 offset + 47 hex + 2 gutter spaces); unchanged by the split.
+        assert_eq!(&row(1)[55..58], "abc", "{}", row(1));
+        // Padding spaces at the tail of the hex column (cols 14..53) carry
+        // the hex_byte style, not base.
+        for x in [14u16, 30, 52] {
+            assert_eq!(
+                buf[(x, 1)].fg,
+                theme.hex_byte,
+                "pad col {x} stays inside the hex_byte span",
+            );
+        }
+        // The two gutter spaces before `abc` are hex_ascii, as on full rows.
+        for x in 53..55u16 {
+            assert_eq!(buf[(x, 1)].fg, theme.hex_ascii, "gutter pad col {x}");
+        }
     }
 
     #[test]

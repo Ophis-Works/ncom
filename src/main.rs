@@ -19,7 +19,7 @@ use app::App;
 use serial::{NcomFlow, NcomParity, NcomStopBits, SerialConfig};
 /// How long each event-loop iteration waits for terminal input. Serial RX is
 /// drained every iteration; this also bounds the 100 ms line idle-flush delay
-/// (spec: poll timeout + channel drain).
+/// (poll timeout + channel drain).
 const POLL_TIMEOUT: Duration = Duration::from_millis(25);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -71,8 +71,10 @@ fn main() -> anyhow::Result<()> {
     let config = config::load();
     let mut app = App::new(&config);
 
-    // Starts connected if --port given (spec: CLI section); otherwise the user
-    // runs `:ports` + `:connect` (task 7).
+    // Starts connected if --port given; otherwise the user
+    // runs `:ports` + `:connect`. Routed through command::connect so
+    // a FAILED startup still records `port_cfg`: `:r` then retries the same
+    // config instead of reporting "r: never connected".
     if let Some(path) = args.port {
         let cfg = SerialConfig {
             path,
@@ -82,17 +84,7 @@ fn main() -> anyhow::Result<()> {
             stop_bits: stop_bits(args.stopbits),
             flow: flow(args.flow),
         };
-        match serial::SerialWorker::spawn(cfg.clone()) {
-            Ok((tx, rx)) => {
-                app.port_cfg = Some(cfg);
-                app.connected = true;
-                app.tx = Some(tx);
-                app.rx = Some(rx);
-            }
-            Err(e) => {
-                app.set_error(format!("connect {}: {e}", cfg.path));
-            }
-        }
+        command::connect(&mut app, cfg);
     }
 
     run(app)
@@ -132,7 +124,7 @@ fn run(app: App) -> anyhow::Result<()> {
     result
 }
 
-/// Restore the terminal before a panic unwinds (spec: terminal setup/teardown).
+/// Restore the terminal before a panic unwinds (terminal setup/teardown).
 fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {

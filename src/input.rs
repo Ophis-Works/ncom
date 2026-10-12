@@ -26,10 +26,12 @@ pub enum KeyResult {
 /// otherwise dispatch to the current mode's handler. `tx` is `None` until a
 /// port is opened (motions/search still work disconnected).
 pub fn handle_key(app: &mut App, key: KeyEvent, tx: Option<&mpsc::Sender<ToWorker>>) -> KeyResult {
+    // Release is unreachable in production (main.rs filters events to Press)
+    // — the guard is defense-in-depth for direct callers/tests.
     if key.kind == crossterm::event::KeyEventKind::Release {
         return KeyResult::Handled;
     }
-    // Global safety exit — spec quits via :q / ZZ; Ctrl-C is the standard
+    // Global safety exit — the app quits via :q / ZZ; Ctrl-C is the standard
     // panic hatch so a broken mode state can never wedge the TUI.
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return KeyResult::Quit;
@@ -117,7 +119,7 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> KeyResult {
                 app.goto_top();
                 KeyResult::Handled
             }
-            // ZZ follows the same rules as `:q` (spec: "quit (same rules as
+            // ZZ follows the same rules as `:q` ("quit (same rules as
             // :q)"): refused with an error while a log is active; `:q!` (or
             // Ctrl-C) is the override.
             (PendingKey::Z, KeyCode::Char('Z')) => {
@@ -256,8 +258,8 @@ fn handle_insert_line(app: &mut App, key: KeyEvent, tx: Option<&mpsc::Sender<ToW
     }
 }
 
-/// COMMAND mode: capture typed chars into the command line; Enter executes
-/// (task 7), Esc aborts back to NORMAL.
+/// COMMAND mode: capture typed chars into the command line; Enter executes,
+/// Esc aborts back to NORMAL.
 fn handle_command(app: &mut App, key: KeyEvent, tx: Option<&mpsc::Sender<ToWorker>>) {
     match key.code {
         KeyCode::Esc => {
@@ -289,7 +291,7 @@ fn handle_command(app: &mut App, key: KeyEvent, tx: Option<&mpsc::Sender<ToWorke
 /// `command::execute` (connect/reconnect spawn the worker there). After Enter
 /// the app always returns to NORMAL (vi-consistent, see command.rs module
 /// docs); parse errors land in the status line. An empty (or all-whitespace)
-/// line is silently ignored — vim behavior: `:` + Enter just closes the line,
+/// line is silently ignored — vim behaviour: `:` + Enter just closes the line,
 /// it is not a parse error.
 fn execute_command(app: &mut App, line: &str, tx: Option<&mpsc::Sender<ToWorker>>) {
     app.mode = Mode::Normal;
@@ -462,7 +464,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Task 6: INSERT line mode (`:line on`)
+    // INSERT line mode (`:line on`)
     // ------------------------------------------------------------------
 
     fn line_app() -> App {
@@ -659,7 +661,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Task 5: motions, follow toggle, pending gg/ZZ, search prompt
+    // Motions, follow toggle, pending gg/ZZ, search prompt
     // ------------------------------------------------------------------
 
     #[test]
@@ -880,7 +882,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // Task 9: port-DOWN UX — TX attempts surface an error, never vanish
+    // Port-DOWN UX — TX attempts surface an error, never vanish
     // ------------------------------------------------------------------
 
     #[test]
@@ -1043,7 +1045,7 @@ mod tests {
         let mut a = app();
         let (tx, _rx) = mpsc::channel::<ToWorker>();
 
-        // `:` + Enter closes the line without a parse error (vim behavior).
+        // `:` + Enter closes the line without a parse error (vim behaviour).
         a.mode = Mode::Command;
         handle_key(&mut a, key(KeyCode::Enter), Some(&tx));
         assert_eq!(a.mode, Mode::Normal);

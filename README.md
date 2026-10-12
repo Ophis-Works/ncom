@@ -6,8 +6,9 @@ for connecting and live reconfiguration.
 
 ## Install
 
-Requires Rust/cargo (Linux). No extra system libraries are needed — the
-`serialport` crate is built without its default `libudev` feature.
+Requires Rust >= 1.85 and cargo (Linux) — the crate uses edition 2024. No
+extra system libraries are needed — the `serialport` crate is built without
+its default `libudev` feature.
 
 Build from source and copy the single binary:
 
@@ -104,7 +105,7 @@ the pty (ncom sees a disconnect).
 
 ## Configuration
 
-Theme colors are configured in a TOML file at
+Theme colours are configured in a TOML file at
 `${XDG_CONFIG_HOME}/ncom/config.toml` (fallback `~/.config/ncom/config.toml`):
 
 ```toml
@@ -118,16 +119,19 @@ hl         = "#b362ff"
 cmd        = "#fad000"
 error      = "#ff628c"
 tx         = "#ff9ed2"
+hex_offset = "#8a80b8"
+hex_byte   = "#c3bfff"
+hex_ascii  = "#8fc7b8"
 ```
 
 `hl` styles the whole-line `:hl` highlight; `/` search matches use `insert` —
-the two highlight colors are separately configurable (the `hl` default is the
+the two highlight colours are separately configurable (the `hl` default is the
 theme's comment purple, `insert` the operator orange). `tx` styles
 local-echo lines (`:echo on`, light pink by default).
+`hex_offset`, `hex_byte` and `hex_ascii` style the `:hex on` view's offset
+column, hex byte column and ASCII gutter respectively (a dim-to-bright tonal
+ladder by default — the bytes are the primary data).
 The top bar uses `topbar`; the body (scrollback, prompt
 and status lines) uses `body`, a shade darker by default. Missing keys (or a
 missing file) fall back to the defaults; invalid
 values produce a startup warning and fall back per key.
-
-Full details (all commands, options, config, limitations) are in
-[ncom-modal-serial-terminal.md](ncom-modal-serial-terminal.md).
