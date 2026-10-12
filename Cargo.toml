@@ -1,0 +1,42 @@
+[package]
+name = "ncom"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# default-features off: drop widget-calendar and macros (unused by this app);
+# keep crossterm backend, layout-cache and underline-color for identical
+# rendering behavior.
+ratatui = { version = "0.30.2", default-features = false, features = [
+    "crossterm",
+    "layout-cache",
+    "underline-color",
+] }
+# default-features off: drop bracketed-paste and derive-more (IsVariant
+# helpers, unused); "events" (mio/signal-hook) is required for input.
+crossterm = { version = "0.29.0", default-features = false, features = [
+    "events",
+] }
+# default-features off: serialport's default = ["libudev"] (crate Cargo.toml
+# line 41) pulls in libudev-sys/pkg-config on Linux; we only use the POSIX
+# TTYPort open/read/write/setter path, so no udev enumeration is needed.
+serialport = { version = "4.10.1", default-features = false }
+clap = { version = "4.6.7", features = ["derive"] }
+# default-features off: only "clock" is needed — it is the feature that
+# enables local timezone support (chrono::Local), see
+# docs.rs/chrono/latest/chrono/#features; it is a superset of "now" and
+# avoids the wasmbind extra on non-wasm targets.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+anyhow = "1.0.104"
+toml = "1.1.7"
+serde = { version = "1.0.229", features = ["derive"] }
+dirs = "7.0.0"
+# pty unit tests: openpty() to create a kernel pty pair
+libc = "0.2"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"
+panic = "abort"

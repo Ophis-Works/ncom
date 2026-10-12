@@ -1,0 +1,6 @@
+/target
+.cargo/*
+.zcodeignore
+todo.txt
+ncom-modal-serial-terminal.md
+scripts/.venv/

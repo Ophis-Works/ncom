@@ -1,0 +1,10 @@
+[project]
+name = "fake-serial"
+version = "0.1.0"
+description = "Fake serial device for testing ncom (creates its own pty, no socat needed)"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.uv]
+# Stdlib-only single-script project; run with: uv run fake-serial.py
+package = false
