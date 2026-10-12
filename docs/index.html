@@ -1,35 +1,129 @@
+
 <!doctype html>
-<html lang="en-GB">
+<html lang="en-GB" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>ncom — a modal, vi-like serial terminal</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    /* Palette derived from the terminal app theme:
+       body #15152b (terminal body), topbar/logo-card #1c1b36, muted #39345c.
+       Page is darker than content cards so screenshots (#15152b body) and the
+       logo card (#1c1b36) never blend into the page background. */
+    :root { --pico-background-color: #0e0d20; }
+    body { background-color: #0e0d20; }
+    .container { max-width: 1000px; }
+    .container > header, .container > section {
+      background-color: #1c1b36;
+      border-radius: 8px;
+      padding: 1rem 1.25rem 0.3rem 1.35rem;
+    }
+    /* Header logo and GitHub mark sit on the same #1c1b36 card — keep the
+       hairline border so they separate from it. */
+    .container > header img { border: 1px solid #39345c; border-radius: 4px; }
+    .container > header a img { border: none; }
+    /* Screenshot sections nest inside #screenshots: no extra card, but give
+       the media inside any card a hairline border in a muted palette tone. */
+    .container section img, .container section video {
+      max-width: 100%; height: auto;
+      border-radius: 4px;
+      border: 1px solid #39345c;
+    }
+    /* Copy button on code blocks, top-right. */
+    pre { position: relative; }
+    pre button, pre button[type="button"] {
+      position: absolute;
+      top: 0.35rem;
+      right: 0.35rem;
+      background: transparent;
+      color: #c9c6e8;
+      border: 1px solid transparent;
+      padding: 2px;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      cursor: pointer;
+      /* 0.6 gave an effective 4.48:1 on the pre background — below AA.
+         0.7 keeps the ghost look and reaches ~5.6:1. */
+      opacity: 0.7;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+    pre button:hover {
+      background-color: #2a2747;
+      border-color: #39345c;
+      opacity: 1;
+    }
+    pre button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+    /* Skip link: visually hidden until focused. */
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      background: #1c1b36;
+      color: #c9c6e8;
+      padding: 0.5rem 1rem;
+      border-radius: 0 0 4px 0;
+      z-index: 10;
+    }
+    .skip-link:focus {
+      left: 0;
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px; height: 1px;
+      margin: -1px; padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
 </head>
 <body>
-  <main class="container">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <main class="container" id="main-content">
 
-    <!-- TODO-for-user: replace the repository URL below (it appears in the
-         header link and the footer) with the real GitHub repository URL
-         before publishing. -->
-    <header>
-      <hgroup>
-        <h1>ncom</h1>
-        <p>A modal, vi-like serial terminal TUI written in Rust.</p>
-      </hgroup>
-      <p><a href="https://github.com/USER/ncom">GitHub repository</a></p>
+    <header style="position: relative">
+      <a href="https://github.com/Ophis-Works/ncom" aria-label="GitHub repository"
+         style="position: absolute; top: 1.75rem; right: 1.35rem; line-height: 0;">
+        <img src="assets/github-mark.svg" alt="" width="32" height="32">
+      </a>
+      <h1><img src="assets/logo.svg" alt="ncom" style="height: 64px; vertical-align: middle;"></h1>
+      <p>A modal, vi-like serial terminal TUI written in Rust.</p>
     </header>
 
-    <p>
+    <p style="padding-top: 1rem">
       ncom connects to serial devices with a 10,000-line scrollback, search,
       and an ex-style <code>:</code> command line for connecting and live
       reconfiguration. It needs no extra system libraries and installs as a
       single static binary.
     </p>
 
-    <section id="install">
-      <h2>Install</h2>
+    <section id="features" aria-labelledby="features-title">
+      <h2 id="features-title">Features</h2>
+      <ul>
+        <li>Modal, vi-like navigation (COMMAND / SERIAL / CMD modes).</li>
+        <li>10,000-line scrollback with case-insensitive search and <code>n</code> / <code>N</code>.</li>
+        <li><code>:filter &lt;pattern&gt;</code> — view only matching lines, nothing deleted.</li>
+        <li><code>:hl &lt;pattern&gt;</code> — whole-line highlight of matching traffic.</li>
+        <li><code>:hex on</code> — hexdump view with offset, byte and ASCII columns.</li>
+        <li><code>:ts on</code> — timestamps on received lines.</li>
+        <li><code>:log &lt;path&gt;</code> — session logging.</li>
+        <li>Live reconfiguration — <code>:baud &lt;n&gt;</code>, <code>:line on|off</code>, <code>:echo on|off</code> and more, without restarting.</li>
+        <li>Local echo of transmitted bytes.</li>
+        <li>Chunked <code>:sendfile</code> that never blocks the UI.</li>
+        <li>Themeable — every colour (backgrounds, accents, hex-view columns) configurable via a TOML theme file.</li>
+      </ul>
+    </section>
+
+    <section id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Install</h2>
       <p>Requires Rust &ge; 1.85 and cargo (Linux; edition 2024).</p>
       <pre><code>cargo build --release
 install -Dm755 target/release/ncom ~/.local/bin/ncom</code></pre>
@@ -42,8 +136,8 @@ cargo build --release --target x86_64-unknown-linux-musl
 install -Dm755 target/x86_64-unknown-linux-musl/release/ncom ~/.local/bin/ncom</code></pre>
     </section>
 
-    <section id="usage">
-      <h2>Usage</h2>
+    <section id="usage" aria-labelledby="usage-title">
+      <h2 id="usage-title">Usage</h2>
       <pre><code>ncom --port /dev/ttyUSB0 --baud 115200</code></pre>
       <p>
         Or start without <code>--port</code> and use <code>:ports</code> to
@@ -58,55 +152,115 @@ install -Dm755 target/x86_64-unknown-linux-musl/release/ncom ~/.local/bin/ncom</
       </ul>
     </section>
 
-    <section id="features">
-      <h2>Features</h2>
-      <ul>
-        <li>Modal, vi-like navigation (COMMAND / SERIAL / CMD modes).</li>
-        <li>10,000-line scrollback with case-insensitive search and <code>n</code> / <code>N</code>.</li>
-        <li><code>:filter &lt;pattern&gt;</code> — view only matching lines, nothing deleted.</li>
-        <li><code>:hl &lt;pattern&gt;</code> — whole-line highlight of matching traffic.</li>
-        <li><code>:hex on</code> — hexdump view with offset, byte and ASCII columns.</li>
-        <li><code>:ts on</code> — timestamps on received lines.</li>
-        <li><code>:log &lt;path&gt;</code> — session logging.</li>
-        <li>Live reconfiguration — <code>:baud &lt;n&gt;</code>, <code>:line on|off</code>, <code>:echo on|off</code> and more, without restarting.</li>
-        <li>Local echo of transmitted bytes.</li>
-        <li>Chunked <code>:sendfile</code> that never blocks the UI.</li>
-      </ul>
+    <section id="screenshots" aria-labelledby="screenshots-title">
+      <h2 id="screenshots-title">Screenshots</h2>
+      <section aria-labelledby="shot-command-title">
+        <h4 id="shot-command-title">Command mode with follow-tail over a telemetry stream</h4>
+        <img src="assets/main.png" alt="Terminal showing serial traffic scrolling in command mode, with the newest telemetry lines at the bottom">
+      </section>
+
+      <section aria-labelledby="shot-hex-title">
+        <h4 id="shot-hex-title">Hex Mode (<code>:hex on</code>)</h4>
+        <img src="assets/hex.png" alt="Terminal showing ncom's hexdump view with offset, byte and ASCII columns">
+      </section>
+
+      <section aria-labelledby="shot-hl-title">
+        <h4 id="shot-hl-title">Whole Line Highlight (<code>:hl ERROR</code>)</h4>
+        <img src="assets/hl.png" alt="Terminal showing received lines containing ERROR highlighted with an accent background">
+      </section>
+
+      <section aria-labelledby="shot-search-title">
+        <h4 id="shot-search-title">Search (<code>/sensor</code>) can be mixed with line hightlighting and filters.</h4>
+        <img src="assets/search.png" alt="Terminal showing search match spans highlighted in a line while a whole-line highlight is active">
+      </section>
+
+      <section aria-labelledby="shot-filter-title">
+        <h4 id="shot-filter-title">Filter (<code>:filter GPS</code>) only matching lines</h4>
+        <img src="assets/filter.png" alt="Terminal showing only the lines matching the GPS filter, with the view snapped to the latest match">
+      </section>
+
+      <section aria-labelledby="shot-help-title">
+        <h4 id="shot-help-title">Help (<code>:help</code>)</h4>
+        <img src="assets/help.png" alt="Terminal showing the help popup listing commands over dimmed scrollback">
+      </section>
+
+      <section aria-labelledby="shot-help2-title">
+        <h4 id="shot-help2-title">Help Page 2 (<code>j</code>) — keybindings</h4>
+        <img src="assets/help2.png" alt="Terminal showing the second help page listing command mode keys and serial mode controls">
+      </section>
+
     </section>
 
-    <section id="screenshots">
-      <h2>Screenshots</h2>
-      <figure>
-        <img src="assets/main.png" alt="Command mode with follow-tail over a telemetry stream">
-        <figcaption>Command mode with follow-tail over a telemetry stream.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/hex.png" alt="Hex view with offset, byte and ASCII columns">
-        <figcaption><code>:hex on</code> — offset, byte and ASCII columns in distinct tones.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/hl.png" alt="Whole-line highlight of matching traffic">
-        <figcaption><code>:hl ERROR</code> — whole-line highlight on matching traffic.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/filter.png" alt="Only matching lines shown by the filter">
-        <figcaption><code>:filter GPS</code> — only matching lines, snapped to the filtered tail.</figcaption>
-      </figure>
-    </section>
-
-    <section id="demo">
-      <h2>Demo</h2>
-      <figure>
-        <video src="assets/demo.webm" controls loop muted></video>
-        <figcaption>Short demo: highlight, search, filter.</figcaption>
-      </figure>
+    <section id="demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">Demo</h2>
+      <section>
+        <h4 id="demo-video-title">Short demo: highlight, search, filter.</h4>
+        <video src="assets/demo.webm" controls loop muted aria-label="ncom feature tour screencast"></video>
+      </section>
     </section>
 
     <footer>
-      <p><a href="https://github.com/USER/ncom">github.com/USER/ncom</a></p>
-      <p>ncom is free software under the <a href="https://github.com/USER/ncom/blob/main/LICENSE">AGPL-3.0-or-later</a> licence.</p>
+      <p>ncom is free software under the <a href="https://github.com/Ophis-Works/ncom/blob/main/LICENSE">AGPL-3.0-or-later</a> licence.</p>
     </footer>
 
   </main>
+  <script>
+    (function () {
+      'use strict';
+      function copyFallback(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } finally {
+          document.body.removeChild(ta);
+        }
+      }
+      var live = document.createElement('span');
+      live.className = 'visually-hidden';
+      live.setAttribute('aria-live', 'polite');
+      live.setAttribute('role', 'status');
+      document.body.appendChild(live);
+      document.querySelectorAll('pre').forEach(function (pre) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = 'Copy';
+        btn.setAttribute('aria-label', 'Copy code');
+        var copyIcon = '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+          '<rect x="5.5" y="5.5" width="8" height="9" rx="1.5"/>' +
+          '<path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1"/>' +
+          '</svg>';
+        var checkIcon = '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+          '<path d="M3 8.5l3.5 3.5L13 5"/>' +
+          '</svg>';
+        btn.innerHTML = copyIcon;
+        btn.addEventListener('click', function () {
+          var text = pre.querySelector('code').innerText;
+          var done = function () {
+            btn.innerHTML = checkIcon;
+            btn.setAttribute('aria-label', 'Copied');
+            live.textContent = 'Copied';
+            setTimeout(function () {
+              btn.innerHTML = copyIcon;
+              btn.setAttribute('aria-label', 'Copy code');
+              live.textContent = '';
+            }, 1500);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () {
+              copyFallback(text);
+              done();
+            });
+          } else {
+            copyFallback(text);
+            done();
+          }
+        });
+        pre.appendChild(btn);
+      });
+    })();
+  </script>
 </body>
 </html>

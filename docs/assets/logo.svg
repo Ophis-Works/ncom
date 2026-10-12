@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 9" width="638" height="198" role="img" aria-label="ncom">
+  <!-- "ncom" drawn as Unicode block-element art on a 28x5 cell grid.
+       Letters: lavender (#a599e9, theme normal mode); card: topbar
+       background (#1c1b36) from src/config.rs. -->
+  <title>ncom</title>
+  <g shape-rendering="crispEdges">
+    <rect x="0" y="0" width="29" height="9" rx="2" fill="#1c1b36"/>
+    <g transform="translate(-1,2)">
+      <!-- n : cols 3-7 -->
+      <rect x="3" y="0" width="5" height="1" fill="#a599e9"/>
+      <rect x="3" y="1" width="1" height="4" fill="#a599e9"/>
+      <rect x="7" y="1" width="1" height="4" fill="#a599e9"/>
+      <!-- c : cols 9-13 -->
+      <rect x="9" y="0" width="5" height="1" fill="#a599e9"/>
+      <rect x="9" y="1" width="1" height="3" fill="#a599e9"/>
+      <rect x="9" y="4" width="5" height="1" fill="#a599e9"/>
+      <!-- o : cols 15-19 -->
+      <rect x="15" y="0" width="5" height="1" fill="#a599e9"/>
+      <rect x="15" y="1" width="1" height="3" fill="#a599e9"/>
+      <rect x="19" y="1" width="1" height="3" fill="#a599e9"/>
+      <rect x="15" y="4" width="5" height="1" fill="#a599e9"/>
+      <!-- m : cols 21-27 -->
+      <rect x="21" y="0" width="7" height="1" fill="#a599e9"/>
+      <rect x="21" y="1" width="1" height="4" fill="#a599e9"/>
+      <rect x="24" y="1" width="1" height="4" fill="#a599e9"/>
+      <rect x="27" y="1" width="1" height="4" fill="#a599e9"/>
+    </g>
+  </g>
+</svg>

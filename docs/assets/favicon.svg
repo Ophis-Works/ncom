@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="ncom">
+  <!-- Favicon: the wordmark's squared "n" (5x5 cell grid) plus a terminal
+       cursor block, centred on the logo card (#1c1b36). n: lavender
+       (#a599e9, theme normal mode); cursor: orange (#ff9d00). -->
+  <title>ncom</title>
+  <g shape-rendering="crispEdges">
+    <rect x="0" y="0" width="32" height="32" rx="7" fill="#1c1b36"/>
+    <!-- n -->
+    <rect x="2" y="6" width="20" height="4" fill="#a599e9"/>
+    <rect x="2" y="10" width="4" height="16" fill="#a599e9"/>
+    <rect x="18" y="10" width="4" height="16" fill="#a599e9"/>
+    <!-- cursor -->
+    <rect x="26" y="6" width="4" height="20" fill="#ff9d00"/>
+  </g>
+</svg>
