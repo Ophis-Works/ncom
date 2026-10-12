@@ -171,3 +171,7 @@ The top bar uses `topbar`; the body (scrollback, prompt
 and status lines) uses `body`, a shade darker by default. Missing keys (or a
 missing file) fall back to the defaults; invalid
 values produce a startup warning and fall back per key.
+
+## Licence
+
+ncom is licensed under the GNU Affero General Public License v3.0 or later — see [LICENSE](LICENSE).
