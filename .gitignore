@@ -1,9 +1,10 @@
 /target
 .cargo/*
+!.cargo/config.toml
 .zcodeignore
 todo.txt
-ncom-modal-serial-terminal.md
+*.md
+!README.md
+!ARCHITECTURE.md
 scripts/.venv/
 __pycache__/
-improvement-plan.md
-fix_pan_second_iter.md

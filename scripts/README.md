@@ -1,13 +1,12 @@
 # scripts/
 
-Helper scripts: recording/capture tooling for the screenshots and demo video
-embedded in the README, plus a standalone fake serial device for manual
-testing. See also `../screenshots/README.md` for the generated artefacts.
+Helper scripts: recording/capture tooling for the screenshots and demo
+animated GIF embedded in the README. See also `../screenshots/README.md` for the generated artefacts.
 
 ## record.sh
 
 One-command regeneration of every visual artefact: builds the release binary,
-captures the five still PNGs, and renders the demo video.
+captures the eight still PNGs, and renders the demo video.
 
 ```sh
 scripts/record.sh
@@ -19,10 +18,10 @@ working directory. After a video run it removes the feeder's leftovers
 
 ## demo.tape
 
-VHS tape for the feature-tour screencast (`screenshots/demo.mp4` +
+VHS tape for the feature-tour screencast (`screenshots/demo.webm` +
 `screenshots/demo.gif`). This is the source of truth for the tour's scene
-list (timestamps, highlight, search, filter, hex, local echo, line mode,
-help). Run from the repo root:
+list (highlight, search, filter with search-inside-filter, clear). Run
+from the repo root:
 
 ```sh
 vhs scripts/demo.tape
@@ -30,9 +29,9 @@ vhs scripts/demo.tape
 
 ## screenshot.tape
 
-VHS tape that captures the five still images embedded in the README
-(`screenshots/{main,hex,search,line,help}.png`) using VHS's `Screenshot`
-command, one known state per still:
+VHS tape that captures the eight still images embedded in the README
+(`screenshots/{main,hex,search,line,help,hl,filter,help2}.png`) using VHS's
+`Screenshot` command, one known state per still:
 
 ```sh
 vhs scripts/screenshot.tape
@@ -52,4 +51,10 @@ ncom --port "$(cat /tmp/ncom-demo-port)"
 The traffic is seeded/fixed (boot header once, GPS lines ~1 in 5, regular
 `[ERROR]` lines) so recordings are reproducible. Exits when the port's read
 side goes away (EIO).
+
+It also doubles as the manual-testing fake serial device (see
+"Testing with socat" in the main README): launch it with a port file and
+point ncom at the published path. It behaves like the removed
+fake-serial.py — own pty, deterministic boot log and telemetry — just at a
+fixed 5 lines per second rather than randomized batches.
 

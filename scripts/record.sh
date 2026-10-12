@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# record.sh -- rebuild ncom and regenerate every visual artifact from scratch:
-# the 5 README still PNGs (screenshot.py) and the demo screencast (demo.tape
-# via VHS: screenshots/demo.mp4 + screenshots/demo.gif).
+# record.sh -- rebuild ncom and regenerate every visual artifact from scratch
 # Works from any CWD; resolves the repo root from this script's own path.
 set -euo pipefail
 

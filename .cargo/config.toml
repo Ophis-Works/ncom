@@ -1,0 +1,20 @@
+# musl-only link-time optimizations (PIE-preserving).
+# Verified 2026-10-09, stable Rust (rustc 1.x stable channel):
+#   baseline (default cc -> ld.bfd):            1,156,096 bytes, static-pie
+#   rust-lld via gcc-ld wrapper:                1,147,624 bytes, static-pie
+#   rust-lld + --icf=all (identical code folding,
+#     unsupported by GNU ld.bfd, hence lld):    1,136,360 bytes, static-pie (-1.7%)
+# --gc-sections already passed by rustc by default (confirmed on the linker
+# command line), lto=true already is fat LTO, -C default-hidden-visibility is
+# nightly-only, -C embed-bitcode / link-dead-code are no-ops at their defaults.
+# The linker is resolved as plain `ld.lld` from PATH: ~/.local/bin/ld.lld is a
+# symlink into the rustup "stable" toolchain's bundled gcc-ld wrapper (which
+# forwards to rust-lld). The symlink survives `rustup update`, since the
+# "stable" toolchain directory name is stable; recreate it after a fresh
+# rustup install if missing:
+#   ln -s ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld ~/.local/bin/ld.lld
+# Verified 2026-10-10: `ld.lld -v` works in a bare shell and the full build
+# and test suite pass with this configuration.
+[target.x86_64-unknown-linux-musl]
+linker = "ld.lld"
+rustflags = ["-C", "link-args=--icf=all"]

@@ -1,5 +1,5 @@
 [project]
-name = "Serial Feeder"
+name = "serial_feeder"
 version = "0.1.0"
 description = "Fake serial device for testing ncom (creates its own pty, no socat needed)"
 requires-python = ">=3.10"

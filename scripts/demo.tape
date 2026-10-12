@@ -40,94 +40,38 @@ Sleep 500ms
 Type "./target/release/ncom --port $(cat /tmp/ncom-demo-port)" Enter
 Show
 
-Sleep 2s
-
-# 1. initial display: traffic streaming in, plain text view (already above)
-# 2. timestamps on
-Type ":ts on" Enter
 Sleep 1.5s
 
-# 3. whole-line highlight for ERROR
-Type ":hl ERROR" Enter
+# 1. serial view with traffic streaming in, plain text view (already above)
+
+# 2. whole-line highlight for ERROR
+Type@50ms ":hl ERROR" Enter
 Sleep 1.5s
 
-# 4. search with match spans
-Type "/temp" Enter
+# 3. search with match spans
+Type@50ms "/temp" Enter
 Sleep 1.5s
 
-# 5. clear the search
-Type ":noh" Enter
-Sleep 500ms
-
-# 6. disable highlight
-Type ":hl off" Enter
-Sleep 500ms
-
-# 7. filter: only GPS lines, live traffic keeps arriving
-Type ":filter GPS" Enter
-Sleep 1.5s
-
-# 8. disable the filter BEFORE the navigation showcase
-Type ":filter off" Enter
-Sleep 500ms
-
-# 9. pause follow, scroll up into the history and back down
-Type "p"
-Sleep 500ms
-Type "kkkkkkkkkkkkkkkkkkkk"
-Sleep 1.2s
-Type "jjjjjjjjjjjjjjjjjjjj"
-Sleep 500ms
-
-# 10. back to the tail and resume follow (traffic proves it is live)
-Type "G" Enter
-Sleep 1.5s
-
-# 11. hex view
-Type ":hex on" Enter
-Sleep 1.5s
-
-# 12. back to text
-Type ":hex off" Enter
-Sleep 500ms
-
-# 13. echo on BEFORE the TX showcase, so sent bytes appear as > lines
-Type ":echo on" Enter
-Sleep 1.2s
-
-# 14. raw insert: send 8 characters to the port (echoed as a > line)
-Type "i"
+# 4. clear the search
+Type@50ms ":noh" Enter
 Sleep 300ms
-Type "ncom1234"
-Sleep 800ms
-Escape
-Sleep 500ms
 
-# 15. line mode on
-Type ":line on" Enter
-Sleep 600ms
-
-# 16. send one line (echoed as a > line with the whole sentence)
-Type "i"
+# 5. disable highlight
+Type@50ms ":hl off" Enter
 Sleep 300ms
-Type "Hello, we can send characters 1 line at a time too" Enter
-Sleep 1s
-Escape
-Sleep 400ms
 
-# 17. line mode off
-Type ":line off" Enter
-Sleep 600ms
-
-# 18. help popup, page 1
-Type "?"
+# 6. filter: only GPS lines, live traffic keeps arriving
+Type@50ms ":filter GPS" Enter
 Sleep 1.5s
 
-# 19. help page 2, then close and hold on the live tail
-Type "j"
+# 7. search again, inside the filtered view
+Type@50ms "/temp" Enter
 Sleep 1.5s
-Escape
-Sleep 1.5s
+
+# 8. clear the search, then the filter
+Type@50ms ":noh" Enter
+Sleep 300ms
+Type@50ms ":filter off" Enter
 
 # The recording ends here, holding on the live tail. ncom keeps running in
 # the VHS session, so the feeder cannot be cleaned up from inside the tape:
@@ -135,3 +79,4 @@ Sleep 1.5s
 # cannot run), and any cleanup keystrokes would go to ncom, not the shell.
 # record.sh removes the leftovers after vhs exits; the tape also rm -f's
 # the port file at startup.
+Sleep 1s

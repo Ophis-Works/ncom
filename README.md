@@ -6,9 +6,9 @@ for connecting and live reconfiguration.
 
 ## Screenshots
 
-Short demo (timestamps, search, filter, hex view) — regenerate with
-`scripts/record.sh` (or `vhs scripts/demo.tape`); a larger `demo.mp4` master
-sits next to the GIF:
+Short demo (highlight, search, filter) — regenerate with
+`scripts/record.sh` (or `vhs scripts/demo.tape`); a larger `demo.webm`
+master sits next to the GIF:
 
 ![Feature tour](screenshots/demo.gif)
 
@@ -20,13 +20,25 @@ Command mode with follow-tail over a telemetry stream:
 
 ![Hex view](screenshots/hex.png)
 
+`:hl ERROR` — whole-line highlight on matching traffic:
+
+![Highlight](screenshots/hl.png)
+
 `:hl error` whole-line highlight combined with a `/flash` search:
 
 ![Search and highlight](screenshots/search.png)
 
+`:filter GPS` — only matching lines, snapped to the filtered tail:
+
+![Filter](screenshots/filter.png)
+
 `:help` popup over dimmed scrollback:
 
 ![Help popup](screenshots/help.png)
+
+The second help page — `j` moves on, `k` back:
+
+![Help popup, page 2](screenshots/help2.png)
 
 Line insert mode with the input bar and block cursor:
 
@@ -115,21 +127,17 @@ ncom --port /dev/pts/4
 Whatever the remote sends appears in ncom; bytes typed in SERIAL MODE go to
 the TCP peer.
 
-Or feed synthetic traffic with `scripts/fake-serial.py` (Python + uv,
-stdlib only; fake boot log + telemetry). It creates its own pty — no socat,
-no device path to pick — and prints the port to open:
+Or feed synthetic traffic with `scripts/serial_feeder.py` (Python + uv,
+stdlib only; deterministic boot log + telemetry at 5 lines per second).
+It creates its own pty and publishes the device path to a file:
 
 ```sh
-cd scripts && uv run fake-serial.py --loop   # a new batch every second
-# it prints the slave path, e.g.:
-#     ncom --port /dev/pts/5
-ncom --port /dev/pts/5          # in another terminal
+cd scripts && uv run serial_feeder.py --port-file /tmp/ncom-port &
+sleep 0.5
+ncom --port "$(cat /tmp/ncom-port)"   # in another terminal
 ```
 
-Ctrl-C stops it. Other options: `--loop 0.5` (batch interval),
-`--lines N` (batch size), `--quiet`, `--hold` (keep port open, write
-nothing). Without `--loop` it writes one batch and exits, which closes
-the pty (ncom sees a disconnect).
+It exits when the port closes (Ctrl-C stops it).
 
 ## Configuration
 
